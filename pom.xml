@@ -72,6 +72,12 @@
 			<artifactId>tika-core</artifactId>
 			<version>${tika.version}</version>
 		</dependency>
+		<!-- https://mvnrepository.com/artifact/is.tagomor.woothee/woothee-java -->
+		<dependency>
+			<groupId>is.tagomor.woothee</groupId>
+			<artifactId>woothee-java</artifactId>
+			<version>${woothee.version}</version>
+		</dependency>
 
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -117,6 +123,7 @@
 		<lombok.version>1.18.4</lombok.version>
 		<mysql.version>8.0.13</mysql.version>
 		<hibernate.version>5.3.7.Final</hibernate.version>
+		<woothee.version>1.8.0</woothee.version>
 	</properties>
 
 	<build>

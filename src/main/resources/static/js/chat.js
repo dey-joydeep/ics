@@ -341,8 +341,9 @@ function updateNewMessage(data) {
         userUnit = $(`.user-unit:has(.friend-ids[value="${data.sender}"])`);
         userUnit.find('.status-icon').empty();
     }
-    userUnit.find('.message-summary')
-            .text(decodeURIComponent(data.content));
+    var sentAt = data.sentAt.substring(0, data.sentAt.lastIndexOf(':'));
+    userUnit.find('.message-time').text(sentAt);
+    userUnit.find('.message-summary').text(decodeURIComponent(data.content));
     if(isSelf || data.sender === $('#chat-in-display').val())
         messageAppender($('#message-out>div.col'), data, caller);
 
