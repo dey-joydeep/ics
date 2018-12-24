@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>ICS- Login</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport"
+	content="width=device-width, initial-scale=1, shrink-to-fit=no, user-scalable=no">
+<link rel="shortcut icon" type="image/x-icon" href="./favicon.ico" />
+<link href="./webjars/bootstrap/css/bootstrap.css" rel="stylesheet">
+<link href="./css/login/login.css" rel="stylesheet" media="all">
+<script src="./webjars/jquery/jquery.min.js"></script>
+<script src="./webjars/bootstrap/js/bootstrap.js"></script>
+<script src="./js/common.js"></script>
+<script src="./js/login.js"></script>
+<title>Login</title>
+<script type="text/javascript">
+</script>
+</head>
+<body>
+	<header>Intra-team Communication System</header>
+	<div class="container-fluid centered-form">
+		<div id="msg-div"></div>
+		<form id="login-form" class="center" method="post" action="login">
+			<div class="row justify-content-end">
+				<div class="col">
+					<div class="form-group">
+						<label for="username" class="field-label">Username: </label> <input
+							name="username" id="username" class="form-control"
+							placeholder="Username or email" autofocus="autofocus" />
+					</div>
+				</div>
+				<div class="w-100"></div>
+				<div class="col">
+					<div class="form-group">
+						<label for="password" class="field-label">Password:</label> <input
+							type="password" id="password" class="form-control"
+							placeholder="Password" name="password" />
+					</div>
+				</div>
+				<div class="w-100"></div>
+				<div class="col">
+					<div class="form-check form-check-inline">
+						<input type="checkbox" name="rememberMe" id="rem-chk"
+							class="form-check-input" value="true" /> <label for="rem-chk"
+							class="form-check-label field-label">Remember me</label>
+					</div>
+				</div>
+				<div class="w-100"></div>
+				<div class="col-4 p-3">
+					<button id="login-btn"
+						class="btn btn-sm btn-outline-primary btn-block">Login</button>
+				</div>
+				<div class="w-100"></div>
+			</div>
+		</form>
+	</div>
+	<footer> Copyright &copy; Joydeep Dey </footer>
+	<div class="modal">
+		<div id="auth-text">Authenticating...</div>
+	</div>
+</body>
+</html>

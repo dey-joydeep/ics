@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>ICS- Home</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport"
+	content="width=device-width, initial-scale=1, shrink-to-fit=no, user-scalable=no">
+<link rel="shortcut icon" type="image/x-icon" href="./favicon.ico" />
+<link href="./webjars/bootstrap/css/bootstrap.css" rel="stylesheet">
+<link href="./css/home/home.css" rel="stylesheet" media="all">
+<script src="./webjars/jquery/jquery.min.js"></script>
+<script src="./webjars/bootstrap/js/bootstrap.bundle.js"></script>
+<!-- <script src="https://unpkg.com/popper.js@1.14.6/dist/umd/popper.min.js"></script> -->
+<script src="./js/common.js"></script>
+<script src="./js/enums.js"></script>
+<script src="./js/home.js"></script>
+<script src="./js/chat.js"></script>
+<script src="./js/preview.js"></script>
+<script src="./js/notifier.js"></script>
+</head>
+<body>
+	<header class="d-flex justify-content-between">
+		<label> Intra-team Communication System </label>
+		<div>
+			<img alt="" src="" width="40" height="40" id="self-avatar"> <span
+				id="self-summary">Welcome</span>
+		</div>
+		<span class="header-icon"> <i
+			class="material-icons float-right" title="Logout" id="logout">
+				power_settings_new </i>
+		</span>
+	</header>
+	<div class="error-alert" id="error-alert">
+		<span id="info-msg"></span>
+	</div>
+	<div id="chat-panel" class="container-fluid">
+		<div class="row">
+			<div id="user-panel" class="chat-sub-panel col-3">
+				<div class="heading">
+					<label>Team Members</label>
+				</div>
+				<div id="user-search" class="form-group">
+					<input type="search" name="searchId" id="search-id"
+						class="form-control" placeholder="Search Friend"
+						disabled="disabled">
+				</div>
+				<div id="user-list"></div>
+			</div>
+			<div id="chat-instruction">Click on any contact from the left
+				to see old messages or to start a new one</div>
+			<div id="msg-panel" class="chat-sub-panel col">
+				<div class="row">
+					<div class="col chat-top-bar clearfix">
+						<div class="d-lg-none d-md-none">
+							<i class="material-icons" id="back-to-friend-list">
+								arrow_back_ios </i>
+						</div>
+						<div id="user-info">
+							<div class="image"></div>
+							<div class="info"></div>
+						</div>
+						<input type="hidden" name="receiverId" id="receiver-id">
+					</div>
+				</div>
+				<div id="message-out" class="row">
+					<div class="col"></div>
+				</div>
+				<div id="message-in" class="row">
+					<div class="extras col">
+						<i class="material-icons float-left d-none d-lg-inline"
+							title="Smiley">insert_emoticon</i> <i
+							class="material-icons d-none d-md-inline float-left av-in"
+							title="Send Photos & Videos">perm_media</i> <i
+							class="material-icons d-none d-md-inline float-left doc-in"
+							title="Send Documents">insert_drive_file</i> <i id="send-items"
+							class="d-sm-inline d-md-none material-icons dropdown-toggle float-right"
+							data-toggle="dropdown">add</i> <input type="checkbox"
+							id="enter-send-check" checked="checked"> <label
+							for="enter-send-check">Allow enter to send message</label>
+
+						<div class="dropdown-menu" aria-labelledby="send-items">
+							<a class="dropdown-item flex-display" href="#"><i
+								class="material-icons av-in">perm_media</i> <label> Send
+									Photos &amp; Videos</label></a> <a class="dropdown-item flex-display"
+								href="#"><i class="material-icons doc-in">insert_drive_file</i>
+								<label>Send Documents</label></a>
+						</div>
+					</div>
+					<div class="w-100"></div>
+					<div class="input-group mb-3 input-box col">
+						<div id="text-in" contenteditable="true" class="form-control"
+							aria-label="" aria-describedby="basic-addon1"
+							data-placeholder="Write something..."></div>
+						<div class="input-group-append">
+							<button class="btn btn-outline-secondary disabled" title="Send"
+								id="send-btn">
+								<i class="material-icons">send</i>
+							</button>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div id="summary-panel" class="chat-sub-panel col-3">User Info
+				Panel</div>
+			<input type="hidden" id="curr-size" value="0"> <input
+				type="hidden" id="next-size" value="100">
+		</div>
+	</div>
+	<footer class="d-none d-lg-block"> Copyright &copy; Joydeep
+		Dey </footer>
+	<input type="hidden" id="username" />
+	<input type="hidden" id="firstname" />
+	<input type="hidden" id="ws-stat" />
+	<input type="hidden" id="chat-in-display">
+	<input type="file" name="avFile" id="av-file" accept=""
+		multiple="multiple">
+	<input type="file" name="docFile" id="doc-file" accept=""
+		multiple="multiple">
+	<div class="modal" tabindex="-1" role="dialog" id="av-preview">
+		<div class="modal-dialog modal-dialog-centered" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">Send Photos &amp; Videos</h5>
+					<button type="button" class="close" data-dismiss="modal"
+						aria-label="Close">
+						<span aria-hidden="true">&times;</span>
+					</button>
+				</div>
+				<div class="modal-body">
+					<div id="av-slide" class="carousel slide" data-interval="false">
+						<div class="carousel-inner"></div>
+						<a class="carousel-control-prev" href="#av-slide" role="button"
+							data-slide="prev"> <span class="carousel-control-prev-icon"
+							aria-hidden="true"></span> <span class="sr-only">Previous</span>
+						</a> <a class="carousel-control-next" href="#av-slide" role="button"
+							data-slide="next"> <span class="carousel-control-next-icon"
+							aria-hidden="true"></span> <span class="sr-only">Next</span>
+						</a>
+					</div>
+				</div>
+				<div class="modal-footer">
+					<button type="button" id="av-send-btn"
+						class="btn btn-outline-secondary">
+						<i class="material-icons">send</i>
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="modal" tabindex="-1" role="dialog" id="user-option">
+		<div class="modal-dialog modal-dialog-centered" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">Confirm</h5>
+				</div>
+				<div class="modal-body">
+					<div id="av-slide" class="carousel slide" data-interval="false">
+						Closing this window will discard the contents. Proceed?</div>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-outline-primary btn-sm"
+						id="confirm-yes">
+						<i class="material-icons">check</i>
+					</button>
+					<button type="button" class="btn btn-outline-primary btn-sm"
+						id="confirm-no">
+						<i class="material-icons">close</i>
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+</body>
+</html>

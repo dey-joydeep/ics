@@ -1,0 +1,60 @@
+@CHARSET "UTF-8";
+
+@IMPORT url("../common.css");
+
+@IMPORT url("login-max-576.css") screen
+	and
+	(max-width:576px);
+
+@IMPORT url("login-min-577.css") screen
+	and
+	(min-width:577px);
+
+#login-form {
+	padding: 20px;
+}
+
+#msg-div {
+	color: #dc3545;
+	text-align: center;
+}
+
+.links {
+	margin-top: 6%;
+	font-size: 0.8rem;
+	text-align: center;
+	border: 1px solid;
+	border-color: #e3e3e3;
+}
+
+.modal {
+	/*display: none;*/
+	position: fixed;
+	z-index: 1000;
+	top: 0;
+	left: 0;
+	height: 100%;
+	width: 100%;
+	background: rgba(255, 255, 255, .8)
+		url('./../../images/gif/ajax-loader.gif') 50% 53% no-repeat;
+}
+
+body.loading .modal {
+	overflow: hidden;
+}
+
+body.loading .modal {
+	display: block;
+}
+
+#auth-text {
+	display: flex;
+    justify-content: center;
+    height: 100%;
+    align-items: center;
+    font-size: 0.8rem;
+}
+
+#auth-text label {
+	align-items: center;
+}

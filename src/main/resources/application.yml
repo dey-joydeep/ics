@@ -1,0 +1,84 @@
+debug: true
+logging:
+  config: classpath:log4j2.xml
+server:
+  port: 80
+#  DIS_SSL
+#  port: 8443
+  connection-timeout: 31536000s
+#DIS_SSL
+#  http2:
+#    enabled: true
+#  ssl:
+#    key-alias: selfsigned_localhost_sslserver
+#    key-password: Jm278342
+#    key-store: classpath:ssl-server.jks
+#    key-store-password: Jm278342
+#    key-store-provider: SUN
+#    key-store-type: JKS
+  servlet:
+    contextPath: /
+spring:
+  mvc:
+    view:
+      prefix: /pages/
+      suffix: .html
+  resources:
+    static-locations:
+    - file:/C:/application/upload/
+    - classpath:/META-INF/resources/
+    - classpath:/resources/
+    - classpath:/static/
+    - classpath:/public/
+    - classpath:/META-INF/resources/webjars/
+  jpa:
+    hibernate:
+      ddl-auto: none
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    properties:
+      javax.persistence.validation.mode: none
+      hibernate.max_fetch_depth: 2
+      hibernate.dialect.storage_engine: innodb
+      hibernate.use_sql_comments: true
+      hibernate.format_sql: true
+      hibernate.type: trace
+      hibernate.connection.provider_disables_autocommit: false
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+    show-sql: true
+  datasource:
+    url: jdbc:mysql://localhost:3306/chatapp_new?useUnicode=true&characterEncoding=UTF-8&allowMultiQueries=true&useSSL=false&serverTimezone=UTC
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: root
+    hikari:
+      minimumIdle: 5
+      maximumPoolSize: 50
+      idleTimeout: 30000
+      poolName: chatapp-hikari-cp
+      maxLifetime: 2000000
+      connectionTimeout: 30000
+      connection-test-query: SELECT 1
+      data-source-properties:
+        hibernate:
+          show_sql: false
+          format_sql: true
+          use_sql: true
+          jdbc.time_zone: UTC
+          connection.provider_disables_autocommit: false
+          search:
+            autoregister_listeners: false
+          bytecode:
+            use_reflection_optimizer: false
+          dataSource:
+            cachePrepStmts: true
+            prepStmtCacheSize: 250
+            prepStmtCacheSqlLimit: 2048
+            useServerPrepStmts: true
+            useLocalSessionState: true
+            rewriteBatchedStatements: true
+            cacheResultSetMetadata: true
+            cacheServerConfiguration: true
+            elideSetAutoCommits: true
+            maintainTimeStats: false
+      auto-commit: false

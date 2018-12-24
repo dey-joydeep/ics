@@ -1,0 +1,7 @@
+Disabling SSL for testing purpose.
+Once testing passed, integrate third party verified SSL certificate.
+
+Following items are modified for disabling SSL and marked as DIS_SSL in comment
+
+application.yml
+WebConfiguration.java
