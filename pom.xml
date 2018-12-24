@@ -112,7 +112,7 @@
 
 
 	<properties>
-		<tika.version>1.18</tika.version>
+		<tika.version>1.19.1</tika.version>
 		<java.version>10</java.version>
 		<lombok.version>1.18.4</lombok.version>
 		<mysql.version>8.0.13</mysql.version>
