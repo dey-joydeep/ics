@@ -18,46 +18,7 @@ $(function () {
             $('#ws-stat').val(1).trigger('change');
             break;
         case 'CLOSED':
-            $('#ws-stat').val(0);
-            console.log(`<<<Retry Count: ${reconnectTry}>>>`);
-            if (reconnectTry > reconnectMaxTry) {
-                clearInterval(intervalId);
-                // Resetting counters
-                reconnectTry = 1;
-                reconnectWaitPeriod = 60;
-                waitPeriodIncreaseFactor = 0;
-                $('#info-msg').text(
-                        'Connection failed...Try to mannualy connect again!');
-                $('#error-alert').show();
-            } else {
-                reconnectTry++;
-                reconnectWaitPeriod += waitPeriodIncreaseFactor;
-                var i = reconnectWaitPeriod;
-                var retry = function () {
-                    if (i === 0) {
-                        clearInterval(intervalId);
-                        console.log('>>>Trying to reconnect to websocket...');
-                        openConnection();
-                        return;
-                    } else {
-                        var m, s, t;
-                        if (i > 60) {
-                            m = parseInt(i / 60);
-                            s = i % 60;
-                            t = `${m} min ${s} sec`;
-                        } else {
-                            t = `$i} sec`;
-                        }
-                        $('#info-msg').text(
-                                `Connection failed...Trying to reconnect in ${t}`);
-                        i--;
-                    }
-                };
-                intervalId = setInterval(retry, 1000);
-                $('#error-alert').show();
-                retry();
-                waitPeriodIncreaseFactor += 60;
-            }
+            handleClosedConnection();
             break;
         case 'RECEIVED_MESSAGE':
             handleData(e.data.content);
@@ -80,32 +41,6 @@ $(function () {
     });
 });
 
-// Display the image in a modal and navigate through all other
-// images of that chat. Navigate allowed by Left/Right arrow
-// keys.
-function displayModal(e, src) {
-    var imgSrcs = [];
-    var currIdx = 0;
-    $.each($('#chat-content').find('.image'), function (idx, img) {
-        imgSrcs[idx] = img.src;
-        if (img.src === curSrc)
-            currIdx = idx;
-    });
-
-    $('#image-display-modal').on('keydown', function (e) {
-        var modal = $(this);
-        if (e.keyCode === 37 && currIdx !== 0) {
-            // Left Arrow
-            modal.find('#msg-attachment-img').attr('src', imgSrcs[--currIdx]);
-        } else if (e.keyCode == 39 && currIdx != imgSrcs.length - 1) {
-            // Right Arrow
-            modal.find('#msg-attachment-img').attr('src', imgSrcs[++currIdx]);
-        } else {
-            // key not supported
-        }
-    });
-}
-
 function openConnection() {
     $('.alert').hide();
     var params = {
@@ -113,6 +48,49 @@ function openConnection() {
         'content' : $('#username').val()
     };
     worker.port.postMessage(params);
+}
+
+function handleClosedConnection(){
+    $('#ws-stat').val(0);
+    console.log(`<<<Retry Count: ${reconnectTry}>>>`);
+    if (reconnectTry > reconnectMaxTry) {
+        clearInterval(intervalId);
+        // Resetting counters
+        reconnectTry = 1;
+        reconnectWaitPeriod = 60;
+        waitPeriodIncreaseFactor = 0;
+        $('#info-msg').text(
+                'Connection failed...Try to mannualy connect again!');
+        $('#error-alert').show();
+    } else {
+        reconnectTry++;
+        reconnectWaitPeriod += waitPeriodIncreaseFactor;
+        var i = reconnectWaitPeriod;
+        var retry = function () {
+            if (i === 0) {
+                clearInterval(intervalId);
+                console.log('>>>Trying to reconnect to websocket...');
+                openConnection();
+                return;
+            } else {
+                var m, s, t;
+                if (i > 60) {
+                    m = parseInt(i / 60);
+                    s = i % 60;
+                    t = `${m} min ${s} sec`;
+                } else {
+                    t = `$i} sec`;
+                }
+                $('#info-msg').text(
+                        `Connection failed...Trying to reconnect in ${t}`);
+                i--;
+            }
+        };
+        intervalId = setInterval(retry, 1000);
+        $('#error-alert').show();
+        retry();
+        waitPeriodIncreaseFactor += 60;
+    }
 }
 
 function sendMessage() {
@@ -188,45 +166,7 @@ function handleData(data) {
         updateMessageReceipt(data);
         break;
     case CommType.MSG:
-        clearTimeout(rcvTypeTimeout);
-        $('#type-stat').empty();
-        $('#type-stat').hide();
-        var caller, userUnit;
-        var isSelf = (data.sender === $('#username').val());
-        if (isSelf) {
-            caller = ChatAppenderCaller.SEND_BTN;
-            userUnit = $(`.user-unit:has(.friend-ids[value="${data.receivers[0]}"])`);
-            userUnit.find('.status-icon').text(StatusIconText.SENT);
-        } else {
-            caller = ChatAppenderCaller.NEW_MESSAGE;
-            userUnit = $(`.user-unit:has(.friend-ids[value="${data.sender}"])`);
-            userUnit.find('.status-icon').empty();
-        }
-        userUnit.find('.message-summary')
-                .text(decodeURIComponent(data.content));
-        if(isSelf || data.sender === $('#chat-in-display').val())
-            messageAppender($('#message-out>div.col'), data, caller);
-
-        if (!isSelf) {
-            var displayUser = $('#chat-in-display').val();
-            if(data.sender !== displayUser){
-                userUnit.find('.message-summary').addClass('unread');
-                var unreadSpan = userUnit.find('.unread-count');
-                var unreadCount = unreadSpan.text();
-                if(unreadCount === '' || isNaN(unreadCount))
-                    unreadCount = 1;
-                else
-                    unreadCount = parseInt(unreadCount) + 1;
-                unreadSpan.text(unreadCount);
-            }
-            
-            var receipt;
-            if (data.sender === displayUser)
-                receipt = AcknowledgeType.READ;
-            else
-                receipt = AcknowledgeType.DELIVERED;
-            sendMessageReceipt(receipt, data);
-        }
+        updateNewMessage(data);
         break;
     case CommType.TYPE:
         $('#type-stat').text('typing...');
@@ -342,16 +282,22 @@ function updateUserStatus(data) {
     var userUnit = $(`.user-unit:has(.friend-ids[value="${data.sender}"])`);
     var userUnitStatus = userUnit.find('span.user-status');
     var displayUserStatus = $('#user-info').find('span.user-status');
+    var displayUserLastSeen = $('#user-info').find('span.last-online');
     if (data.status === UserStatus.ONLINE) {
         userUnitStatus.replaceClass('online', 'offline');
-        if (data.sender === displayUser)
+        userUnitStatus.find('.last-online').val('');
+        if (data.sender === displayUser){
+            displayUserLastSeen.text('');
             displayUserStatus.replaceClass('online', 'offline');
+        }
     } else {
         userUnitStatus.replaceClass('offline', 'online');
-        if (data.sender === displayUser)
+        userUnitStatus.find('.last-online').val(data.lastOnlineDateTime);
+        if (data.sender === displayUser){
             displayUserStatus.replaceClass('offline', 'online');
+            displayUserLastSeen.text(getLastSeenFormatted(data.lastOnlineDateTime));
+        }
     }
-
 }
 
 function updateMessageReceipt(data) {
@@ -377,6 +323,48 @@ function updateMessageReceipt(data) {
             status.text(StatusIconText.DELIVERED);
         if (data.read)
             status.addClass('read');
+    }
+}
+
+function updateNewMessage(data) {
+    clearTimeout(rcvTypeTimeout);
+    $('#type-stat').empty();
+    $('#type-stat').hide();
+    var caller, userUnit;
+    var isSelf = (data.sender === $('#username').val());
+    if (isSelf) {
+        caller = ChatAppenderCaller.SEND_BTN;
+        userUnit = $(`.user-unit:has(.friend-ids[value="${data.receivers[0]}"])`);
+        userUnit.find('.status-icon').text(StatusIconText.SENT);
+    } else {
+        caller = ChatAppenderCaller.NEW_MESSAGE;
+        userUnit = $(`.user-unit:has(.friend-ids[value="${data.sender}"])`);
+        userUnit.find('.status-icon').empty();
+    }
+    userUnit.find('.message-summary')
+            .text(decodeURIComponent(data.content));
+    if(isSelf || data.sender === $('#chat-in-display').val())
+        messageAppender($('#message-out>div.col'), data, caller);
+
+    if (!isSelf) {
+        var displayUser = $('#chat-in-display').val();
+        if(data.sender !== displayUser){
+            userUnit.find('.message-summary').addClass('unread');
+            var unreadSpan = userUnit.find('.unread-count');
+            var unreadCount = unreadSpan.text();
+            if(unreadCount === '' || isNaN(unreadCount))
+                unreadCount = 1;
+            else
+                unreadCount = parseInt(unreadCount) + 1;
+            unreadSpan.text(unreadCount);
+        }
+        
+        var receipt;
+        if (data.sender === displayUser)
+            receipt = AcknowledgeType.READ;
+        else
+            receipt = AcknowledgeType.DELIVERED;
+        sendMessageReceipt(receipt, data);
     }
 }
 
@@ -445,24 +433,6 @@ function messageAppender(messageDiv, response, caller) {
 
     elP.html(urlify(elP.html()));
     scrollToBottom(messageDiv.parent());
-}
-
-function getDateGroupDiv(ts, caller) {
-    var months = [ 'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG',
-            'SEP', 'OCT', 'NOV', 'DEC' ];
-    var lastTs = ts.substring(0, ts.lastIndexOf(' '));
-    var dateParts = lastTs.split('/');
-    var lastDtGrp = (caller === ChatAppenderCaller.SEND_BTN || caller === ChatAppenderCaller.NEW_MESSAGE) ? $('.dt-grp:last')
-            : $('.dt-grp:first');
-    var dtGrp = `${dateParts[0]} ${months[parseInt(dateParts[1]) - 1]} ${dateParts[2]}`;
-    var proceed = (lastDtGrp.length === 0 || (lastDtGrp.length > 0 && lastDtGrp
-            .text() !== dtGrp));
-
-    return proceed ? $(`<div class="dt-grp"><p>${dtGrp}</p></div>`) : null;
-}
-
-function scrollToBottom(content) {
-    content[0].scrollTop = content[0].scrollHeight;
 }
 
 // function renderMessage(message) {
