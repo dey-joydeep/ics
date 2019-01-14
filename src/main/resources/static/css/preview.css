@@ -1,0 +1,195 @@
+/**
+ * Copyright Joydeep Dey 2018-2019
+ */
+@IMPORT url("https://fonts.googleapis.com/icon?family=Material+Icons");
+
+.preview-pane {
+	top: 0;
+	width: 100%;
+	height: 100vh;
+	z-index: 1000;
+	position: absolute;
+	background: #000000f2;
+	display: none;
+}
+
+.preview-pane button.close {
+	clear: both;
+	float: right;
+	color: #403d3dd1 !important;
+	border: 1px solid #403d3dd1;
+	border-radius: 50%;
+	margin-top: 0.5%;
+	margin-right: 0.5%;
+	background: #fff;
+}
+
+.preview-pane button.close:focus {
+	box-shadow: 0;
+}
+
+.preview-pane i.close:hover {
+	color: #131212 !important;
+	border-color: #131212;
+}
+
+.preview-pane .m-content {
+	width: 90%;
+	height: 80vh;
+	background-color: #e2d3d31a;
+	text-align: center;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+.preview-pane .m-content .view-controller {
+	height: 100%;
+	display: flex;
+	align-items: center;
+}
+
+.preview-pane .m-content .view-controller.control-left {
+	clear: left;
+	float: left;
+	margin-left: 0.5%;
+}
+
+.preview-pane .m-content .view-controller.control-right {
+	clear: right;
+	float: right;
+	margin-right: 0.5%;
+}
+
+.preview-pane .m-content .view-controller>button {
+	width: 50px;
+	height: 50px;
+	border: 1px solid;
+	border-radius: 50%;
+	color: #fff;
+	background: #4caf50c7;
+	border-color: #4caf50c7;
+}
+
+.preview-pane .m-content .view-controller>button:hover, .preview-pane .m-content .view-controller>button:active
+	{
+	box-shadow: 0 0 2px 2px #4caf50c7;
+}
+
+.preview-pane .m-content .p-content {
+	width: 90%;
+	height: 90%;
+	margin-top: 1%;
+	margin-left: auto;
+	margin-right: auto;
+	display: inline-block;
+	background-repeat: no-repeat;
+	background-position: center;
+}
+
+.preview-pane .m-content .p-content.type-image {
+	background-size: contain;
+}
+
+.preview-pane .m-content .p-content.type-icon {
+	background-size: initial;
+}
+
+.preview-pane .m-content .file-control {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.preview-pane .m-content .file-control .up-filename {
+	color: #fff;
+}
+
+.preview-pane .remove-icon {
+	color: #c12e2e;
+}
+
+.preview-pane .m-thumbnail {
+	width: 90%;
+	height: 15vh;
+	display: flex;
+	background-color: #38363626;
+	margin-left: 5%;
+}
+
+.preview-pane .m-thumbnail .thumbs {
+	width: 8%;
+	height: 90%;
+	align-self: center;
+	margin-left: 0.5%;
+	cursor: pointer;
+	text-align: right;
+}
+
+.preview-pane .m-thumbnail .thumbs.unloaded {
+	border: 2px solid;
+	border-color: #000;
+}
+
+.preview-pane .m-thumbnail .thumbs.active-thumb {
+	border: 2px solid;
+	border-color: #4caf50c7;
+}
+
+.preview-pane .m-thumbnail .thumbs.data {
+	background-image: url('./../images/gif/spinner.gif');
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: cover;
+}
+
+.preview-pane .m-thumbnail .thumbs.file-add {
+	display: inline-flex;
+	justify-content: center;
+	align-items: center;
+	background: #b5bdc8;
+	background: -moz-linear-gradient(top, #b5bdc8 0%, #828c95 36%, #28343b 100%);
+	background: -webkit-linear-gradient(top, #b5bdc8 0%, #828c95 36%, #28343b 100%);
+	background: linear-gradient(to bottom, #b5bdc8 0%, #828c95 36%, #28343b 100%);
+	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#b5bdc8',
+		endColorstr='#28343b', GradientType=0);
+}
+
+.preview-pane .m-content.fileview-pane {
+	height: 95vh;
+	margin-top: 3vh;
+}
+
+.preview-pane .m-content.fileview-pane .p-content {
+	margin: 0;
+	background: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.preview-pane .fileview-pane .p-content .content-object {
+	width: 60%;
+	height: 98%;
+	background: #fff;
+}
+
+.preview-pane .fileview-pane .p-content .content-video {
+	width: 65%;
+	height: 50%;
+	max-width: 90%;
+	max-height: 60%;
+}
+
+.preview-pane .fileview-pane .p-content .content-image {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+.preview-pane .fileview-pane .file-control a:hover, .preview-pane .fileview-pane .file-control a:active
+	{
+	text-decoration: none;
+}
+
+.preview-pane .fileview-pane .file-control .material-icons {
+	color: #4caf50c7;
+}

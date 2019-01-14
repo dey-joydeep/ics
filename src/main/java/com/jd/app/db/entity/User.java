@@ -6,7 +6,6 @@ import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Enumerated;
-import javax.persistence.FetchType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.OneToMany;
@@ -24,7 +23,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "user")
 @NoArgsConstructor
-@EqualsAndHashCode(callSuper = false)
+@EqualsAndHashCode(callSuper = false, exclude = "login")
 public class User extends CreateUpdateTSColumns {
 
 	private static final long serialVersionUID = 1L;
@@ -54,6 +53,6 @@ public class User extends CreateUpdateTSColumns {
 	@Column(name = "avatar_path")
 	private String avatarPath;
 
-	@OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "sender", orphanRemoval = true)
+	@OneToMany(cascade = CascadeType.ALL, mappedBy = "sender")
 	private Set<Message> messages;
 }

@@ -1,6 +1,8 @@
 package com.jd.app.shared.constant.enums;
 
 /**
+ * Type of communications
+ * 
  * @author Joydeep Dey
  */
 public enum CommType {

@@ -9,6 +9,7 @@ import javax.persistence.NoResultException;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 
+import org.hibernate.transform.ResultTransformer;
 import org.springframework.data.jpa.provider.HibernateUtils;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.Assert;
@@ -16,6 +17,7 @@ import org.springframework.util.Assert;
 import com.jd.app.db.entity.common.CommonEntity;
 import com.jd.app.db.entity.common.CreateUpdateDeleteTSColumns;
 
+import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 
 /**
@@ -31,6 +33,8 @@ public class CommonDao implements Serializable {
 	private EntityManager em;
 
 	private Class<?> clazz;
+	@Setter
+	private ResultTransformer resultTransformer;
 
 	protected final void setClass(final Class<?> clazz) {
 		this.clazz = clazz;
@@ -97,13 +101,15 @@ public class CommonDao implements Serializable {
 	 * @param paramValueMap
 	 * @return result
 	 */
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings({ "unchecked", "deprecation" })
 	public List<? extends CommonEntity> find(String hql, Map<String, Object> paramValueMap, int maxResult) {
 		Query query = em.createQuery(hql);
 		if (paramValueMap != null)
 			setParamaeters(query, paramValueMap);
 		if (maxResult > 0)
 			query.setMaxResults(maxResult);
+		if (this.resultTransformer != null)
+			query.unwrap(org.hibernate.Query.class).setResultTransformer(resultTransformer);
 		log.info("Executing query: " + HibernateUtils.getHibernateQuery(query));
 		return query.getResultList();
 	}
@@ -124,6 +130,26 @@ public class CommonDao implements Serializable {
 			log.error(nre);
 		}
 		return ob;
+	}
+
+	/**
+	 * @param sql
+	 * @param paramValueMap
+	 * @return result
+	 */
+	public List<? extends CommonEntity> findUsingNative(String sql, Map<String, Object> paramValueMap) {
+		return findUsingNative(sql, paramValueMap, 0);
+	}
+
+	@SuppressWarnings("unchecked")
+	public List<? extends CommonEntity> findUsingNative(String sql, Map<String, Object> paramValueMap, int maxResult) {
+		Query query = em.createNativeQuery(sql, this.clazz);
+		if (paramValueMap != null)
+			setParamaeters(query, paramValueMap);
+		if (maxResult > 0)
+			query.setMaxResults(maxResult);
+		log.info("Executing query: " + HibernateUtils.getHibernateQuery(query));
+		return query.getResultList();
 	}
 
 	/**

@@ -10,7 +10,7 @@ public interface HomeService {
 
 	UserBean getSelfDetails(String username);
 
-	List<MemberBean> getMembers(String username);
+	List<MemberBean> getChatHistory(String username);
 
 	List<MessageBean> getMessages(String sender, String receiver);
 }

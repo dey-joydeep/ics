@@ -2,24 +2,30 @@ package com.jd.app.websocket.service;
 
 import static com.jd.app.shared.constant.general.AppConstants.SESSION_ATTR_LOGIN_ID;
 import static com.jd.app.shared.constant.general.AppConstants.SESSION_ATTR_USERNAME;
-import static com.jd.app.websocket.bean.GlobalResource.ACTIVE_SESSION_HOLDER;
-import static com.jd.app.websocket.bean.GlobalResource.OFFLINE_REQUEST_HOLDER;
+import static com.jd.app.websocket.bean.WebSocketSessionResource.ACTIVE_SESSION_HOLDER;
+import static com.jd.app.websocket.bean.WebSocketSessionResource.OFFLINE_REQUEST_HOLDER;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.MessageFormat;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
+import java.util.TimeZone;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.socket.BinaryMessage;
@@ -35,9 +41,13 @@ import com.jd.app.db.entity.Login;
 import com.jd.app.db.entity.Message;
 import com.jd.app.db.entity.User;
 import com.jd.app.shared.constant.enums.AcknowledgeType;
+import com.jd.app.shared.constant.enums.AnswerType;
 import com.jd.app.shared.constant.enums.CommType;
+import com.jd.app.shared.constant.enums.ContentType;
 import com.jd.app.shared.constant.enums.ErrorLevel;
+import com.jd.app.shared.constant.enums.MediaType;
 import com.jd.app.shared.constant.enums.UserStatus;
+import com.jd.app.shared.constant.general.AppConstants;
 import com.jd.app.shared.error.exceptions.DatabaseException;
 import com.jd.app.shared.helper.AppUtil;
 import com.jd.app.websocket.bean.WsAcknowledge;
@@ -49,6 +59,8 @@ import com.jd.app.websocket.bean.WsUserWrapper;
 import lombok.extern.log4j.Log4j2;
 
 /**
+ * The implementation class of MessagingService interface.
+ * 
  * @author Joydeep Dey
  */
 @Log4j2
@@ -63,14 +75,6 @@ public class MessagingServiceImpl implements MessagingService {
 
 	@Autowired
 	private MessageDao messageDao;
-
-	private static final String UPLOAD_PATH = "C:/application/upload/";
-
-	static {
-		File f = new File(UPLOAD_PATH);
-		if (!f.exists())
-			f.mkdirs();
-	}
 
 	public void addUserToSession(WebSocketSession session) {
 		String username = null;
@@ -103,14 +107,15 @@ public class MessagingServiceImpl implements MessagingService {
 	public void removeUserFromSession(WebSocketSession session) {
 
 		try {
-			final String username = session.getAttributes().get(SESSION_ATTR_USERNAME).toString();
 			boolean isSessionRemoved = false;
+			final String username = session.getAttributes().get(SESSION_ATTR_USERNAME).toString();
 
 			List<WebSocketSession> sessionList = ACTIVE_SESSION_HOLDER.get(username);
-			for (int i = 0; i < sessionList.size(); i++) {
-				WebSocketSession targetSession = sessionList.get(i);
+			Iterator<WebSocketSession> sessionIterator = sessionList.iterator();
+			while (sessionIterator.hasNext()) {
+				WebSocketSession targetSession = sessionIterator.next();
 				if (targetSession.getId().equals(session.getId()) && !targetSession.isOpen()) {
-					sessionList.remove(i);
+					sessionIterator.remove();
 					isSessionRemoved = true;
 					break;
 				}
@@ -148,25 +153,22 @@ public class MessagingServiceImpl implements MessagingService {
 	}
 
 	@Transactional(rollbackFor = Exception.class)
-	private boolean checkForOffline(String username, long loginId)
-			throws InterruptedException, ExecutionException, DatabaseException {
-		boolean sendOffline = false;
+	private boolean checkForOffline(String username, long loginId) throws InterruptedException {
 		OFFLINE_REQUEST_HOLDER.add(username);
 		log.info("Initiating session check wait...user: " + username);
 		Thread.sleep(1000 * 5L);
 		OFFLINE_REQUEST_HOLDER.remove(username);
 		if (!ACTIVE_SESSION_HOLDER.containsKey(username)) {
-			sendOffline = true;
-			log.info("No more session created in 15s. Updating last online. User: " + username);
+			log.info("No more session created in 5s. Updating last online. User: " + username);
 			updateLastOnline(loginId);
-		} else {
-			log.info("Session created in 15s. Not updating last online. User: " + username);
+			return true;
 		}
-		return sendOffline;
+		log.info("Session created in 5s. Not updating last online. User: " + username);
+		return false;
 	}
 
 	@Transactional(rollbackFor = Exception.class)
-	private void updateLastOnline(long loginId) throws DatabaseException {
+	private void updateLastOnline(long loginId) {
 		Login login = loginDao.getLoginDetails(loginId);
 		login.setLastOnlineAt(ZonedDateTime.now());
 		loginDao.updateLoginDetails(login);
@@ -215,6 +217,7 @@ public class MessagingServiceImpl implements MessagingService {
 						continue;
 					log.info("Sending normal message");
 					log.info("Destination: " + userSession);
+					changeTimeZone(userSession);
 					userSession.sendMessage(textMessage);
 				}
 			}
@@ -223,13 +226,13 @@ public class MessagingServiceImpl implements MessagingService {
 		jsonMessage = jsonMapper.writeValueAsString(wsCommon);
 		textMessage = new TextMessage(jsonMessage);
 		// If error present, sent the error to current session holder
-		if (wsCommon.getCommType() == CommType.ERR) {
-			if (session.isOpen()) {
-				log.info("Sending error message");
-				log.info("Destination: " + session);
-				session.sendMessage(textMessage);
-			}
-		} else if (wsCommon.getCommType() == CommType.MSG) {
+		if (wsCommon.getCommType() == CommType.ERR && session.isOpen()) {
+			log.info("Sending error message");
+			log.info("Destination: " + session);
+			session.sendMessage(textMessage);
+			return;
+		}
+		if (wsCommon.getCommType() == CommType.MSG) {
 			List<WebSocketSession> sessionList = ACTIVE_SESSION_HOLDER.get(wsCommon.getSender());
 			// Send message to all the active session of the sender
 			for (WebSocketSession userSession : sessionList) {
@@ -237,6 +240,7 @@ public class MessagingServiceImpl implements MessagingService {
 					continue;
 				log.info("Sending normal message");
 				log.info("Destination: " + userSession);
+				changeTimeZone(userSession);
 				userSession.sendMessage(textMessage);
 			}
 		}
@@ -252,6 +256,7 @@ public class MessagingServiceImpl implements MessagingService {
 			case MSG:
 				WsMessage wsMessage = new WsMessage();
 				wsMessage = jsonMapper.readValue(bytes, WsMessage.class);
+				wsMessage.setContentType(ContentType.TEXT);
 				saveMessage(wsMessage);
 				return wsMessage;
 			case ACK:
@@ -273,48 +278,87 @@ public class MessagingServiceImpl implements MessagingService {
 		}
 	}
 
-	private static final String[] MEDIA_EXTS = { ".gif", ".png", ".jpg", ".jpeg" };
-	private static final String[] DOCU_EXTS = { ".docx", ".doc", ".xls", "xlsx", ".txt", ".c", ".java", ".pdf" };
-
 	@Transactional(rollbackFor = Exception.class)
 	private WsCommon processBinaryMessage(BinaryMessage message) {
 		try {
 			WsMessage wsMessage = new WsMessage();
 			ByteBuffer byteBuffer = message.getPayload();
-			byte[] payloadBytes = byteBuffer.array();
-			int bodyLen = Integer.parseInt(Byte.toString(payloadBytes[0]));
-			log.info("Body length detected: " + bodyLen);
-			byte[] body = new byte[bodyLen];
-			for (int i = 1; i <= bodyLen; i++) {
-				body[i - 1] = payloadBytes[i];
-			}
+			/*
+			 * byte[] payloadBytes = byteBuffer.array(); int bodyLen =
+			 * Integer.parseInt(Byte.toString(payloadBytes[0]));
+			 * log.info("Body length detected: " + bodyLen); byte[] body = new
+			 * byte[bodyLen]; for (int i = 1; i <= bodyLen; i++) { body[i - 1] =
+			 * payloadBytes[i]; }
+			 */
+			// New Content start
+			String messageContent = new String(byteBuffer.array(), StandardCharsets.UTF_8);
+			int sepIdx = messageContent.indexOf('\n');
+			String body = messageContent.substring(0, sepIdx);
+			String base64Content = messageContent.substring(sepIdx + 1);
+			String fileBase64 = base64Content.substring(base64Content.indexOf(',') + 1);
+			byte[] fileBytes = Base64.getDecoder().decode(fileBase64.getBytes(StandardCharsets.UTF_8));
+			// New Content end
+
 			log.info("Message body: " + new String(body));
 			wsMessage = jsonMapper.readValue(body, WsMessage.class);
 
-			byte[] fileBytes = new byte[byteBuffer.limit() - bodyLen - 1];
-			int idx = 0;
-			for (int i = bodyLen + 1; i < payloadBytes.length; i++)
-				fileBytes[idx++] = payloadBytes[i];
+			String mainFileName = wsMessage.getMainFilename();
+			int dotIdx = mainFileName.lastIndexOf(".");
+			String fileExt = null;
+			if (dotIdx != -1)
+				fileExt = mainFileName.substring(dotIdx);
 
-			String fileExt = wsMessage.getAvFile().substring(wsMessage.getAvFile().lastIndexOf("."));
-			String filename = System.currentTimeMillis() + fileExt;
-			boolean isAllowedMedia = isAllowedFile(fileExt, 0);
-			if (isAllowedMedia) {
-				wsMessage.setAvFile(filename);
-			} else {
-				boolean isAllowedDocument = isAllowedFile(fileExt, 1);
-				if (isAllowedDocument)
-					wsMessage.setDocFile(filename);
+			if (dotIdx == -1 || !(isAllowedFile(fileExt, 0) || isAllowedFile(fileExt, 1) || isAllowedFile(fileExt, 2)
+					|| isAllowedFile(fileExt, 3))) {
+				WsError wsError = new WsError();
+				wsError.setLevel(ErrorLevel.HIGH);
+				wsError.setMessage("Unsupported file.");
+				return wsError;
 			}
-			Files.write(Paths.get(UPLOAD_PATH, filename), fileBytes);
+			wsMessage.setMediaType(AppUtil.getMediaType(mainFileName));
+			if (MediaType.IMAGE == wsMessage.getMediaType() && !AppConstants.IMAGE_EXT_GIF.equals(fileExt)) {
+				fileExt = AppConstants.IMAGE_EXT_JPG;
+				mainFileName = mainFileName.substring(0, dotIdx) + fileExt;
+				wsMessage.setMainFilename(mainFileName);
+			}
+			String filename = System.currentTimeMillis() + fileExt;
+			/*
+			 * int idx = 0; byte[] fileBytes = new byte[byteBuffer.limit() - bodyLen - 1];
+			 * for (int i = bodyLen + 1; i < payloadBytes.length; i++) fileBytes[idx++] =
+			 * payloadBytes[i];
+			 */
+			String filePath = createFilePath(wsMessage) + File.separator + filename;
+			Files.write(Paths.get(filePath), fileBytes);
+			// Set actual file path for storing into database
+			wsMessage.setModFilename(filePath);
 			saveMessage(wsMessage);
+			// Remove the actual path and set relative path for download/render
+			wsMessage.setModFilename(AppUtil.getRelativePath(filePath));
 			return wsMessage;
 		} catch (Exception e) {
 			log.error("Failed to process the file.", e);
 			WsError wsError = new WsError();
+			wsError.setLevel(ErrorLevel.LOW);
 			wsError.setMessage("Failed to process the file.");
 			return wsError;
 		}
+	}
+
+	private static String createFilePath(WsMessage wsMessage) {
+		StringBuffer uploadPathFinal = new StringBuffer();
+		uploadPathFinal.append(AppConstants.UPLOAD_PATH);
+		uploadPathFinal.append(AppConstants.ATTACHMENT_FOLDER);
+		uploadPathFinal.append(wsMessage.getSender());
+		uploadPathFinal.append(File.separator);
+		uploadPathFinal.append(wsMessage.getReceivers()[0]);
+		uploadPathFinal.append(File.separator);
+		uploadPathFinal.append(wsMessage.getMediaType().toString().toLowerCase());
+		File f = new File(uploadPathFinal.toString());
+		if (!f.exists()) {
+			f.mkdirs();
+		}
+
+		return f.getAbsolutePath();
 	}
 
 	@Transactional(rollbackFor = Exception.class)
@@ -323,12 +367,46 @@ public class MessagingServiceImpl implements MessagingService {
 		message.setSender(new User(wsMessage.getSender()));
 		message.setReceiver(new User(wsMessage.getReceivers()[0]));
 		message.setContent(AppUtil.decodeText(wsMessage.getContent()));
-		message.setAttachmentPathMedia(wsMessage.getAvFile());
-		message.setAttachmentPathDoc(wsMessage.getDocFile());
-
+		message.setAttachmentPath(wsMessage.getModFilename());
+		message.setOriginalFilename(wsMessage.getMainFilename());
 		message.setSentAt(ZonedDateTime.now());
 		message.setReceiverType(wsMessage.getReceiverType());
-		messageDao.insertMessage(message);
+
+		AnswerType answerType = wsMessage.getAnswerType();
+
+		boolean isUpdate = false;
+		if (answerType != null) {
+			message.setAnswerType(answerType);
+			if (AnswerType.REPLY == answerType) {
+				Message repliedMessage = messageDao.getMessagesById(wsMessage.getReplyOf().getMessageId());
+				repliedMessage.setMessageId(wsMessage.getReplyOf().getMessageId());
+				message.setReplyOf(repliedMessage);
+				isUpdate = true;
+			}
+		}
+		if (isUpdate)
+			messageDao.updateMessage(message);
+		else
+			messageDao.insertMessage(message);
+
+		if (message.getReplyOf() != null) {
+			Message repliedMessage = message.getReplyOf();
+			WsMessage wsRepliedMessage = wsMessage.getReplyOf();
+			wsRepliedMessage.setSender(repliedMessage.getSender().getUsername());
+			wsRepliedMessage.setReceivers(new String[] { repliedMessage.getReceiver().getUsername() });
+			wsRepliedMessage.setContent(AppUtil.encodeText(repliedMessage.getContent()));
+			if (StringUtils.isNotBlank(repliedMessage.getAttachmentPath())) {
+				wsRepliedMessage.setMediaType(AppUtil.getMediaType(repliedMessage.getAttachmentPath()));
+				wsRepliedMessage.setMainFilename(repliedMessage.getOriginalFilename());
+				wsRepliedMessage.setModFilename(AppUtil.getRelativePath(repliedMessage.getAttachmentPath()));
+				if (wsRepliedMessage.getContent() != null)
+					wsRepliedMessage.setContentType(ContentType.MIXED);
+				else
+					wsRepliedMessage.setContentType(ContentType.BINARY);
+			} else {
+				wsRepliedMessage.setContentType(ContentType.TEXT);
+			}
+		}
 
 		wsMessage.setMessageId(message.getMessageId());
 		wsMessage.setSentAt(message.getSentAt());
@@ -382,9 +460,32 @@ public class MessagingServiceImpl implements MessagingService {
 	}
 
 	private static boolean isAllowedFile(String ext, int type) {
-		String[] target = type == 0 ? MEDIA_EXTS : DOCU_EXTS;
+		String[] target;
+		switch (type) {
+		case 0:
+			target = AppConstants.IMAGE_EXTS;
+			break;
+		case 1:
+			target = AppConstants.AUDIO_EXTS;
+			break;
+		case 2:
+			target = AppConstants.VIDEO_EXTS;
+			break;
+		case 3:
+			target = Arrays.copyOf(AppConstants.DOCU_EXTS,
+					AppConstants.DOCU_EXTS.length + AppConstants.PDF_EXTS.length + AppConstants.TEXT_EXTS.length);
+			System.arraycopy(AppConstants.PDF_EXTS, 0, target, AppConstants.DOCU_EXTS.length,
+					AppConstants.PDF_EXTS.length);
+			System.arraycopy(AppConstants.TEXT_EXTS, 0, target,
+					AppConstants.DOCU_EXTS.length + AppConstants.PDF_EXTS.length, AppConstants.TEXT_EXTS.length);
+			break;
+		default:
+			target = null;
+		}
+		if (target == null)
+			return false;
 		for (String aExt : target) {
-			if (aExt.equals(ext))
+			if (aExt.equalsIgnoreCase(ext))
 				return true;
 		}
 		return false;
@@ -408,6 +509,15 @@ public class MessagingServiceImpl implements MessagingService {
 		for (WebSocketSession session : sessionList) {
 			if (session.isOpen())
 				session.sendMessage(new TextMessage(userStatus));
+		}
+	}
+
+	private void changeTimeZone(WebSocketSession session) {
+		// Set time zone for this request from WsCommon
+		Object obTz = session.getAttributes().get(AppConstants.SESSION_ATTR_USER_TZ);
+		if (obTz != null) {
+			TimeZone tz = TimeZone.getTimeZone(ZoneId.of(obTz.toString()));
+			LocaleContextHolder.setTimeZone(tz);
 		}
 	}
 }

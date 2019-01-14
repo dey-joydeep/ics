@@ -1,5 +1,5 @@
 body {
-	background-color: #fff;
+	background-color: #f5f5f5;
 }
 
 header, footer {
@@ -46,7 +46,7 @@ textarea:focus, input:focus,
 }
 
 .material-icons {
-	color: #4caf50c7 !important;
+	/*color: #4caf50c7 !important;*/
 }
 
 .msg-self {

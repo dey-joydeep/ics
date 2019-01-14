@@ -35,9 +35,9 @@ public class HomeController {
 		return homeService.getSelfDetails(username);
 	}
 
-	@GetJsonMapping("/member")
+	@GetJsonMapping("/chathistory")
 	public List<MemberBean> loadTeamMembers(@RequestParam String username) {
-		return homeService.getMembers(username);
+		return homeService.getChatHistory(username);
 	}
 
 	@GetJsonMapping("/message")

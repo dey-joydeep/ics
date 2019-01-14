@@ -3,6 +3,7 @@ package com.jd.app.db.dao.def;
 import java.util.List;
 
 import com.jd.app.db.entity.User;
+import com.jd.app.db.entity.rst.ChatHistory;
 import com.jd.app.shared.error.exceptions.DatabaseException;
 
 /**
@@ -40,5 +41,5 @@ public interface UserDao {
 	 */
 	User getUserByUsername(String username) throws DatabaseException;
 
-	List<User> getActiveUsers(String username) throws DatabaseException;
+	List<ChatHistory> getChatHistoryList(String username) throws DatabaseException;
 }

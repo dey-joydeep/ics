@@ -30,6 +30,10 @@ public class MessageDaoImpl extends CommonDao implements MessageDao {
 		update(message);
 	}
 
+	public Message getMessagesById(long messageId) {
+		return (Message) findById(messageId);
+	}
+
 	public List<Message> getMessagesById(long[] messageIds) throws DatabaseException {
 		try {
 			if (messageIds == null || messageIds.length == 0)
@@ -71,8 +75,9 @@ public class MessageDaoImpl extends CommonDao implements MessageDao {
 
 	@SuppressWarnings("unchecked")
 	private List<Message> getMessages(String sender, String receiver, int count) {
-		String hql = "FROM Message m WHERE ((m.sender.username = :sender and m.receiver.username = :receiver) OR "
-				+ "(m.receiver.username = :sender and m.sender.username = :receiver)) ORDER BY m.sentAt DESC";
+		String hql = "FROM Message m WHERE ((m.sender.username = :sender and m.receiver.username = :receiver AND m.receiverDelete IS FALSE) OR "
+				+ "(m.receiver.username = :sender and m.sender.username = :receiver AND m.senderDelete IS FALSE)) "
+				+ "ORDER BY m.sentAt DESC";
 		Map<String, Object> paramValueMap = new HashMap<>();
 		paramValueMap.put("sender", sender);
 		paramValueMap.put("receiver", receiver);
@@ -84,7 +89,7 @@ public class MessageDaoImpl extends CommonDao implements MessageDao {
 			throws DatabaseException {
 		try {
 			Map<String, Object> paramValueMap = new HashMap<>();
-			String hql = "FROM Message m WHERE m.receiver.username = :username ";
+			String hql = "FROM Message m WHERE m.receiverDelete IS FALSE AND m.receiver.username = :username ";
 			if (senders != null) {
 				if (senders.length == 1) {
 					hql += "AND m.sender.username = :sender ";
@@ -113,7 +118,8 @@ public class MessageDaoImpl extends CommonDao implements MessageDao {
 	public Long getUnreadMessagesCount(String sender, String receiver) throws DatabaseException {
 		try {
 			Map<String, Object> paramValueMap = new HashMap<>();
-			String hql = "SELECT COUNT(m) FROM Message m WHERE m.receiver.username = :receiver AND m.sender.username = :sender AND (m.readAt IS NULL OR m.deliveredAt IS NULL)";
+			String hql = "SELECT COUNT(m) FROM Message m WHERE m.receiver.username = :receiver AND m.sender.username = :sender "
+					+ "AND m.receiverDelete IS FALSE AND (m.readAt IS NULL OR m.deliveredAt IS NULL)";
 			paramValueMap.put("sender", sender);
 			paramValueMap.put("receiver", receiver);
 			Long count = (Long) findUnique(hql, paramValueMap);

@@ -6,6 +6,7 @@ import org.springframework.web.socket.BinaryMessage;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.PongMessage;
 import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.WebSocketMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 
@@ -30,27 +31,31 @@ public class MessageHandler extends AbstractWebSocketHandler {
 	}
 
 	public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-		log.info("Connection closed.\nReason:" + status.getReason());
+		log.info("Connection closed.\nReason:" + status.getCode());
 		messagingService.removeUserFromSession(session);
 	}
 
-	protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-		WsCommon wsCommon = messagingService.processMessage(session, message, MessagingService.MSG_TYPE_TEXT);
-		messagingService.sendMessage(session, wsCommon);
-	}
+	@Override
+	public void handleMessage(WebSocketSession session, WebSocketMessage<?> message) throws Exception {
+		short messageType;
+		if (message instanceof TextMessage) {
+			messageType = MessagingService.MSG_TYPE_TEXT;
+		} else if (message instanceof BinaryMessage) {
+			messageType = MessagingService.MSG_TYPE_BIN;
+		} else if (message instanceof PongMessage) {
+			messageType = MessagingService.MSG_TYPE_PONG;
+		} else {
+			throw new IllegalStateException("Unexpected WebSocket message type: " + message);
+		}
 
-	protected void handleBinaryMessage(WebSocketSession session, BinaryMessage message) throws Exception {
-		WsCommon wsCommon = messagingService.processMessage(session, message, MessagingService.MSG_TYPE_BIN);
-		messagingService.sendMessage(session, wsCommon);
-	}
+		// Process the received message and store in DB
+		WsCommon wsCommon = messagingService.processMessage(session, message, messageType);
 
-	protected void handlePongMessage(WebSocketSession session, PongMessage message) throws Exception {
-		WsCommon wsCommon = messagingService.processMessage(session, message, MessagingService.MSG_TYPE_PONG);
+		// Send the message to destination
 		messagingService.sendMessage(session, wsCommon);
 	}
 
 	public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
 		exception.printStackTrace();
 	}
-
 }

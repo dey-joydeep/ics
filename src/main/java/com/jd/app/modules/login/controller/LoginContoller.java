@@ -1,18 +1,21 @@
 package com.jd.app.modules.login.controller;
 
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.util.WebUtils;
 
-import com.jd.app.modules.SharedBean;
 import com.jd.app.modules.login.bean.LoginBean;
 import com.jd.app.modules.login.service.LoginService;
 import com.jd.app.shared.annotation.GetJsonMapping;
 import com.jd.app.shared.annotation.NoSessionCheck;
 import com.jd.app.shared.annotation.PostJsonMapping;
+import com.jd.app.shared.constant.general.AppConstants;
 import com.jd.app.shared.helper.AppUtil;
 
 /**
@@ -27,8 +30,8 @@ public class LoginContoller {
 
 	@PostJsonMapping("/login")
 	public LoginBean login(@RequestBody LoginBean loginBean, HttpServletRequest request, HttpServletResponse response) {
-		loginBean.setIpAddres(AppUtil.getClientIpAddress(request));
-		loginBean.setUserAgent(request.getHeader("User-Agent"));
+		loginBean.setIpAddress(AppUtil.getClientIpAddress(request));
+		loginBean.setUserAgent(request.getHeader(AppConstants.REQ_HEADER_USER_AGENT));
 		loginService.authenticate(loginBean);
 
 		if (loginBean.isSuccess()) {
@@ -40,7 +43,17 @@ public class LoginContoller {
 	}
 
 	@GetJsonMapping("/logout")
-	public SharedBean logout(HttpServletRequest request, HttpServletResponse response) {
-		return loginService.processLogout(request, response);
+	public void logout(HttpServletRequest request, HttpServletResponse response) {
+		HttpSession session = request.getSession(false);
+		session.setAttribute(AppConstants.SESSION_ATTR_AUTO_EXPIRE, false);
+		session.invalidate();
+		Cookie autoLoginCookie = WebUtils.getCookie(request, AppConstants.CK_AUTO_LOGIN);
+		if (autoLoginCookie == null)
+			return;
+		String[] cookieVals = autoLoginCookie.getValue().split(AppConstants.CK_SEPERATOR);
+		if (cookieVals.length == 2) {
+			autoLoginCookie.setMaxAge(0);
+			response.addCookie(autoLoginCookie);
+		}
 	}
 }

@@ -1,21 +1,22 @@
-var isWindowActive = true;
+//var isWindowActive = true;
 
 if (Notification.permission !== "granted")
 	Notification.requestPermission();
 
-$(function() {
-	$(window).blur(function() {
-		isWindowActive = false;
-	});
-	$(window).focus(function() {
-		isWindowActive = true;
-	});
-});
+// $(function() {
+// $(window).blur(function() {
+// isWindowActive = false;
+// });
+// $(window).focus(function() {
+// isWindowActive = true;
+// });
+// });
 
 function notifyMe(senderName) {
 	if (Notification.permission !== "granted")
 		Notification.requestPermission();
 	else {
+	    console.log('Desktop notification is sent.');
 		var a = $('#my-name').text();
 		a = a.substring(a.lastIndexOf(':') + 1, a.length)
 		var notification = new Notification('Hi ' + a + '!', {

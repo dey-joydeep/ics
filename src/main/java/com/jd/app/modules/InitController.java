@@ -44,10 +44,10 @@ public class InitController {
 		// Look for session cookie- loginToken:_al
 		Cookie loginCookie = WebUtils.getCookie(request, AppConstants.CK_AUTO_LOGIN);
 		if (loginCookie != null) {
-			loginBean.setIpAddres(AppUtil.getClientIpAddress(request));
+			loginBean.setIpAddress(AppUtil.getClientIpAddress(request));
 			loginBean.setLoginToken(loginCookie.getValue());
 
-			loginBean.setUserAgent(request.getHeader("User-Agent"));
+			loginBean.setUserAgent(request.getHeader(AppConstants.REQ_HEADER_USER_AGENT));
 			loginService.authenticate(loginBean);
 
 			if (loginBean.isSuccess()) {
