@@ -5,6 +5,14 @@
 	url("https://stackpath.bootstrapcdn.com/bootstrap/4.1.0/css/bootstrap.min.css");*/
 @IMPORT url("https://fonts.googleapis.com/icon?family=Material+Icons");
 
+body {
+	overflow: hidden;
+}
+
+i.focus {
+	box-shadow: 0;
+}
+
 label {
 	margin-bottom: 0;
 }
@@ -22,12 +30,24 @@ label {
 	font-size: 15px;
 }
 
+.material-icons.md-16 {
+	font-size: 16px;
+}
+
 .material-icons.md-18 {
 	font-size: 18px;
 }
 
+.material-icons.md-19 {
+	font-size: 19px;
+}
+
 .material-icons.md-24 {
 	font-size: 24px;
+}
+
+.material-icons.md-25 {
+	font-size: 25px;
 }
 
 .material-icons.md-36 {
@@ -167,8 +187,6 @@ footer {
 }
 
 i.material-icons {
-	cursor: pointer;
-	display: inline-block;
 	vertical-align: middle;
 }
 
@@ -179,8 +197,4 @@ i.material-icons {
 .dropdown-menu>a:hover {
 	border: 1px solid;
 	font-weight: bold;
-}
-
-i.dropdown-toggle::after {
-	display: none;
 }

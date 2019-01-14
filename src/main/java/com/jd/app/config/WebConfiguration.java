@@ -1,11 +1,15 @@
 package com.jd.app.config;
 
+import javax.servlet.http.HttpSessionListener;
+
 import org.apache.catalina.Context;
 import org.apache.catalina.connector.Connector;
 import org.apache.tomcat.util.descriptor.web.SecurityCollection;
 import org.apache.tomcat.util.descriptor.web.SecurityConstraint;
 import org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory;
+import org.springframework.boot.web.servlet.ServletListenerRegistrationBean;
 import org.springframework.boot.web.servlet.server.ServletWebServerFactory;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -29,7 +33,7 @@ public class WebConfiguration implements WebMvcConfigurer {
 	}
 
 //FIXME DIS_SSL
-//	@Bean
+	@Bean
 	public ServletWebServerFactory servletContainer() {
 		TomcatServletWebServerFactory tomcat = new TomcatServletWebServerFactory() {
 			@Override
@@ -49,9 +53,14 @@ public class WebConfiguration implements WebMvcConfigurer {
 	private static Connector redirectConnector() {
 		Connector connector = new Connector(TomcatServletWebServerFactory.DEFAULT_PROTOCOL);
 		connector.setScheme("http");
-		connector.setPort(8080);
+		connector.setPort(80);
 		connector.setSecure(false);
-		connector.setRedirectPort(8443);
+		connector.setRedirectPort(443);
 		return connector;
+	}
+
+	@Bean
+	public ServletListenerRegistrationBean<HttpSessionListener> sessionListener() {
+		return new ServletListenerRegistrationBean<HttpSessionListener>(new SessionListener());
 	}
 }

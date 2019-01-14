@@ -19,5 +19,4 @@ public class JsonDateTimeDeserializer extends JsonDeserializer<LocalDateTime> {
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern(AppConstants.YYYYMMDD_HH24MMSS);
 		return LocalDateTime.parse(jsonParser.getText(), formatter);
 	}
-
 }

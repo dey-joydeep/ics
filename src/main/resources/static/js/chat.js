@@ -1,15 +1,13 @@
 'use strict';
-var curSrc;
 var intervalId;
+var reconnectTry = 1;
 const reconnectMaxTry = 5;
 var reconnectWaitPeriod = 60; // in seconds
+var waitPeriodIncreaseFactor = 0;
 
 const worker = new SharedWorker('./js/socket_worker.js');
 
 $(function () {
-    var reconnectTry = 1;
-    var waitPeriodIncreaseFactor = 0;
-
     worker.port.onmessage = function (e) {
         switch (e.data.command) {
         case 'CONNECTED':
@@ -51,46 +49,57 @@ function openConnection() {
 }
 
 function handleClosedConnection(){
-    $('#ws-stat').val(0);
-    console.log(`<<<Retry Count: ${reconnectTry}>>>`);
-    if (reconnectTry > reconnectMaxTry) {
-        clearInterval(intervalId);
-        // Resetting counters
-        reconnectTry = 1;
-        reconnectWaitPeriod = 60;
-        waitPeriodIncreaseFactor = 0;
-        $('#info-msg').text(
-                'Connection failed...Try to mannualy connect again!');
-        $('#error-alert').show();
-    } else {
-        reconnectTry++;
-        reconnectWaitPeriod += waitPeriodIncreaseFactor;
-        var i = reconnectWaitPeriod;
-        var retry = function () {
-            if (i === 0) {
-                clearInterval(intervalId);
-                console.log('>>>Trying to reconnect to websocket...');
-                openConnection();
-                return;
-            } else {
-                var m, s, t;
-                if (i > 60) {
-                    m = parseInt(i / 60);
-                    s = i % 60;
-                    t = `${m} min ${s} sec`;
+    var jqXhr = $.ajax({
+        url : 'cs',
+        method : 'get',
+    });
+
+    jqXhr.done(function(data) {
+        if(!data.success){
+            redirect();
+        }
+    
+        $('#ws-stat').val(0);
+        console.log(`<<<Retry Count: ${reconnectTry}>>>`);
+        if (reconnectTry > reconnectMaxTry) {
+            clearInterval(intervalId);
+            // Resetting counters
+            reconnectTry = 1;
+            reconnectWaitPeriod = 60;
+            waitPeriodIncreaseFactor = 0;
+            $('#info-msg').text(
+                    'Connection failed...Try to mannualy connect again!');
+            $('#error-alert').show();
+        } else {
+            reconnectTry++;
+            reconnectWaitPeriod += waitPeriodIncreaseFactor;
+            var i = reconnectWaitPeriod;
+            var retry = function () {
+                if (i === 0) {
+                    clearInterval(intervalId);
+                    console.log('>>>Trying to reconnect to websocket...');
+                    openConnection();
+                    return;
                 } else {
-                    t = `$i} sec`;
+                    var m, s, t;
+                    if (i > 60) {
+                        m = parseInt(i / 60);
+                        s = i % 60;
+                        t = `${m} min ${s} sec`;
+                    } else {
+                        t = `${i} sec`;
+                    }
+                    $('#info-msg').text(
+                            `Connection failed...Trying to reconnect in ${t}`);
+                    i--;
                 }
-                $('#info-msg').text(
-                        `Connection failed...Trying to reconnect in ${t}`);
-                i--;
-            }
-        };
-        intervalId = setInterval(retry, 1000);
-        $('#error-alert').show();
-        retry();
-        waitPeriodIncreaseFactor += 60;
-    }
+            };
+            intervalId = setInterval(retry, 1000);
+            $('#error-alert').show();
+            retry();
+            waitPeriodIncreaseFactor += 60;
+        }
+    });
 }
 
 function sendMessage() {
@@ -108,15 +117,24 @@ function sendMessage() {
         content = content.substring(0, content.length - 2);
     while (content.endsWith('\n')) 
         content = content.substring(0, content.length - 1);
-    $('#msg-in-box').focus();
-
+    $('#text-in').focus();
+    if(content.length === 0)
+        return;
     var data = {
         'commType' : CommType.MSG,
         'sender' : $('#username').val(),
         'receivers' : $('#receiver-id').val(),
         'content' : encodeURIComponent(content.trim()),
-        'receiverType' : ReceiverType.SINGLE
+        'receiverType' : ReceiverType.SINGLE,
+        'contentType' : ContentType.TEXT
     };
+    var reply = $('.msg-reply');
+    if(reply.length === 1){
+    	data.answerType = AnswerType.REPLY;
+    	data.replyOf = {};
+    	data.replyOf.messageId = reply.find('.r-msg-id').val();
+    	reply.remove();
+    }
     var params = {
         'content' : data,
         'command' : 'SEND_TEXT'
@@ -126,7 +144,7 @@ function sendMessage() {
     $('#send-btn').attr('disabled', 'disabled');
 }
 
-function sendFiles() {
+function sendFiles(fileList) {
     $('#msg-in-box').focus();
 
     var data = {
@@ -134,23 +152,21 @@ function sendFiles() {
         'sender' : $('#username').val(),
         'receivers' : $('#receiver-id').val(),
         'content' : '',
-        'receiverType' : ReceiverType.SINGLE
+        'receiverType' : ReceiverType.SINGLE,
+        'contentType' : ContentType.BINARY
     };
     var params = {
         'content' : data,
         'command' : 'SEND_BINARY'
     };
-    var files = $('input[type="file"]')[0].files;
-    if (isPresent(files) && files.length > 0) {
-        console.log(`>>>Total files to send: ${files.length}`);
-        
-        for (var i = 0; i < files.length; i++) {
-            console.log(`>>>Sending file- ${i + 1} of ${files.length}`);
-            params.file = files[i];
-            params.content.filename = files[i].name;
-            worker.port.postMessage(params);
-        }
-    }
+    var totalFiles = Object.keys(fileList).length;
+    console.log(`>>>Total files to send: ${totalFiles}`);
+    $.each(fileList, function(i, file){
+        console.log(`>>>Sending file- ${i + 1} of ${totalFiles}`);
+        params.content.mainFilename = file.name;
+        params.file = file.data;
+        worker.port.postMessage(params);
+    });
 }
 
 var rcvTypeTimeout;
@@ -158,6 +174,7 @@ function handleData(data) {
     switch (data.commType) {
     case CommType.ERR:
         resolveError(data);
+        $('input[type="file"]').val('');
         break;
     case CommType.NOT:
         updateUserStatus(data);
@@ -267,6 +284,8 @@ function sendMessageReceipt(ackType, message) {
 }
 
 function resolveError(error) {
+	if (error.level === ErrorLevel.FATAL)
+		window.location.replace('./');
     if (error.level === ErrorLevel.LOW) {
         $('#info-msg').text(error.message);
         $('#error-alert').show();
@@ -281,18 +300,19 @@ function updateUserStatus(data) {
     var displayUser = $('#chat-in-display').val();
     var userUnit = $(`.user-unit:has(.friend-ids[value="${data.sender}"])`);
     var userUnitStatus = userUnit.find('span.user-status');
+    var userUnitLastSeen = userUnit.find('input.last-online');
     var displayUserStatus = $('#user-info').find('span.user-status');
     var displayUserLastSeen = $('#user-info').find('span.last-online');
     if (data.status === UserStatus.ONLINE) {
+        userUnitLastSeen.val('');
         userUnitStatus.replaceClass('online', 'offline');
-        userUnitStatus.find('.last-online').val('');
         if (data.sender === displayUser){
             displayUserLastSeen.text('');
             displayUserStatus.replaceClass('online', 'offline');
         }
     } else {
+        userUnitLastSeen.val(data.lastOnlineDateTime);
         userUnitStatus.replaceClass('offline', 'online');
-        userUnitStatus.find('.last-online').val(data.lastOnlineDateTime);
         if (data.sender === displayUser){
             displayUserStatus.replaceClass('offline', 'online');
             displayUserLastSeen.text(getLastSeenFormatted(data.lastOnlineDateTime));
@@ -318,18 +338,21 @@ function updateMessageReceipt(data) {
     for (var i = 0; i < data.messageIds.length; i++) {
         var displayedMsg = $(`#message-out>div.col>div.msg:has(
         .msg-ids[value="${data.messageIds[i]}"])`);
-        var status = displayedMsg.find('i.status-icon');
-        if (data.delivered || data.read)
+        var status = displayedMsg.find('.ts-div>i.status-icon');
+        if (data.delivered || data.read) {
             status.text(StatusIconText.DELIVERED);
-        if (data.read)
+            displayedMsg.find('.ts-div>.d-dt').val(data.deliveredAt);
+	        if (data.read) {
             status.addClass('read');
+	            displayedMsg.find('.ts-div>.r-dt').val(data.readAt);
+	        }
+        }
     }
 }
 
 function updateNewMessage(data) {
     clearTimeout(rcvTypeTimeout);
     $('#type-stat').empty();
-    $('#type-stat').hide();
     var caller, userUnit;
     var isSelf = (data.sender === $('#username').val());
     if (isSelf) {
@@ -341,9 +364,11 @@ function updateNewMessage(data) {
         userUnit = $(`.user-unit:has(.friend-ids[value="${data.sender}"])`);
         userUnit.find('.status-icon').empty();
     }
+    userUnit.find('.d-none').removeClass('d-none');
     var sentAt = data.sentAt.substring(0, data.sentAt.lastIndexOf(':'));
     userUnit.find('.message-time').text(sentAt);
-    userUnit.find('.message-summary').text(decodeURIComponent(data.content));
+    var content = getMessageSummaryContent(data, isSelf);
+    userUnit.find('.message-summary').html(content);
     if(isSelf || data.sender === $('#chat-in-display').val())
         messageAppender($('#message-out>div.col'), data, caller);
 
@@ -361,30 +386,29 @@ function updateNewMessage(data) {
         }
         
         var receipt;
-        if (data.sender === displayUser)
+        if (!document.hidden && data.sender === displayUser)
             receipt = AcknowledgeType.READ;
         else
             receipt = AcknowledgeType.DELIVERED;
         sendMessageReceipt(receipt, data);
     }
+    
+    userUnit.parent().prepend(userUnit);
 }
 
 function messageAppender(messageDiv, response, caller) {
-    var msgs = $('.msg');
+	var elP, fileContent;
+	var div = $(MESSAGE_PROTO);
     var ts = response.sentAt;
     ts = ts.substring(0, ts.lastIndexOf(':'));
     var dtGrp = getDateGroupDiv(ts, caller);
-    var elP;
     var content = decodeURIComponent(response.content);
-    var div = $(`<div class="msg">
-                    <input type="hidden" class="msg-ids" value="${response.messageId}">
-                 </div>`);
-    var msgDiv = $('<div class="msg-div"></div>');
-    var tsDiv = $('<div class="ts-div"></div>');
-    var paraContent = $('<p class="text-content"></p>').html(content);
-    elP = paraContent;
-    var spanTime = `<span class="ts">${ts.split(' ')[1]}</span>`;
-    var messageStatus = $('<i class="material-icons md-12 status-icon"></i>');
+    div.find('.msg-ids').val(response.messageId);
+    var msgDiv = div.find('.msg-div');
+    var tsDiv = div.find('.ts-div');
+    var paraContent = div.find('.text-content');
+    var fileDiv = div.find('.attach-content');
+    
     if (caller === ChatAppenderCaller.USER_SELECT) {
         var firstDtGrp = $('.dt-grp:first');
         if (dtGrp !== null) {
@@ -399,24 +423,95 @@ function messageAppender(messageDiv, response, caller) {
             messageDiv.append(dtGrp);
         messageDiv.append(div);
     }
-    div.append(msgDiv);
-    msgDiv.append(paraContent);
-    msgDiv.append(tsDiv);
-    tsDiv.append(spanTime);
-    tsDiv.append(messageStatus);
+    
+    var reply = response.replyOf;
+    if(isPresent(reply)){
+        var rDiv = $(MESSAGE_REPLY_PREV_PROTO);
+        div.find('.msg-div').prepend(rDiv);
+        var senderName = 'You';
+        if(reply.sender !== $('#username').val()) {
+            senderName = $(`.user-unit:has(.friend-ids[value="${reply.receiver}"])`).find('.fullname').text();
+            senderName = senderName.split(' ')[0];
+        }
+        rDiv.find('.r-msg-id').val(reply.messageId);
+        rDiv.find('.reply-origin-name').text(senderName);
+        if(isPresent(reply.content))
+            rDiv.find('.text-content').text(decodeURIComponent(reply.content));
+        
+        var hasFile = false;
+        if(reply.contentType === ContentType.BINARY) {
+            hasFile = true;
+            rDiv.addClass('image-only');
+        }
+        
+        if(reply.contentType === ContentType.MIXED) {
+            hasFile = true;
+            rDiv.addClass('text-image');
+        }
+        if(hasFile) {
+            prepareBinaryDisplay(response);
+        }
+    }
+    
+    if(response.contentType === ContentType.TEXT || response.contentType === ContentType.MIXED){
+    	paraContent.html(content);
+    	elP = paraContent;
+    }
+    
+    var dLink, isViewable = false;
+    var hasBinary = (response.contentType === ContentType.BINARY || response.contentType === ContentType.MIXED);
+    if(hasBinary) {
+    	var data = prepareBinaryDisplay(response);
+    	dLink = data.dLink
+    	fileContent = data.fileContent;
+    	isViewable = data.isViewable;
+    	
+    	if(response.mediaType !== MediaType.AUDIO)
+    	    fileContent.addClass('center');
+    	
+    	if(isPresent(dLink))
+    		if(isViewable)
+    			fileDiv.append(fileContent).append(dLink.attr('title', 'Click to download'));
+    		else
+    		fileDiv.append(dLink.prepend(fileContent).attr('title', 'Click to download'));
+    	else 
+    		fileDiv.append(fileContent);
+    	
+    	var srcPath = div.find('.attach-content>.attach-source');
+    	var srcName = div.find('.attach-content>.attach-filename');
+    	var srcType = div.find('.attach-content>.attach-mediatype');
+    	srcPath.val(response.modFilename);
+    	srcName.val(response.mainFilename);
+    	srcType.val(response.mediaType);
+		if(isViewable) {
+    		isViewable = false;
+			srcPath.addClass('viewable');
+			srcName.addClass('viewable');
+			srcType.addClass('viewable');
+			// Reset viewable
+	    	fileContent.click(function(){
+	    		handleFileClick(this);
+	    	});
+    	}
+	}
 
-    var sender = response.sender;
-    if (sender === $('#username').val()) {
+    div.find('.ts-div>.ts').text(ts.split(' ')[1]);
+    div.find('.ts-div>.s-dt').val(response.sentAt);
+    
+    var messageStatus = div.find('.ts-div>.status-icon');
+    if (response.sender === $('#username').val()) {
         switch (response.messageStatus) {
         case AcknowledgeType.SENT:
             messageStatus.text(StatusIconText.SENT);
             break;
         case AcknowledgeType.DELIVERED:
             messageStatus.text(StatusIconText.DELIVERED);
+            div.find('.ts-div>.d-dt').val(response.deliveredAt);
             break;
         case AcknowledgeType.READ:
             messageStatus.addClass('read');
             messageStatus.text(StatusIconText.DELIVERED);
+            div.find('.ts-div>.r-dt').val(response.readAt);
             break;
         default:
             messageStatus.text(StatusIconText.SENT);
@@ -428,63 +523,127 @@ function messageAppender(messageDiv, response, caller) {
     } else {
         div.addClass('float-left');
         msgDiv.addClass('msg-other');
-        if (caller === ChatAppenderCaller.NEW_MESSAGE && !isWindowActive)
+        if (caller === ChatAppenderCaller.NEW_MESSAGE && document.hidden){
+            console.log('Sending desktop notification.');
             notifyMe($('#user-info').text());
+        }
     }
 
-    elP.html(urlify(elP.html()));
-    scrollToBottom(messageDiv.parent());
+    if(isPresent(elP))
+    	elP.html(urlify(elP.html()));
+    if(caller !== ChatAppenderCaller.USER_SELECT)
+        if(hasBinary)
+            fileContent.on('load', function(){
+                scrollToBottom(messageDiv.parent());                
+            });
+        else
+            scrollToBottom(messageDiv.parent());
 }
 
-// function renderMessage(message) {
-// var mainDiv = $(`<div class="main"></div>`);
-// var msgId = $(`<input type="hidden" class="msg-id">`);
-// var content = $(`<div class="msg-content"></div>`);
-// var ts = $(`<div class="msg-status"></div>`);
-// var img = $(`<img class="image"></img>`);
-//
-// msgId.val(message.messageId);
-// mainDiv.append(msgId);
-//
-// if (isPresent(message.filename)) {
-// img.attr(`src`, message.filename);
-// mainDiv.append(img);
-//
-// img.click(function() {
-// var modal = $(`#image-display-modal`);
-// modal.find(`#msg-attachment-img`).attr(`src`, this.src);
-// curSrc = this.src;
-// modal.modal();
-// });
-// }
-//
-// if (isPresent(message.content)) {
-// content.text(message.content);
-// mainDiv.append(content);
-// }
-// if (message.sender === $(`#username`).val()) {
-// ts.text(`Sent @ ` + message.sentAt);
-// mainDiv.append(ts);
-// }
-//
-// $(`#chat-content`).append(mainDiv);
-//
-// }
+function prepareBinaryDisplay(response) {
+    var dLink, fileContent, isViewable = false;
+    var mediaType = isPresent(response.replyOf) ? response.replyOf.mediaType : response.mediaType;
+    switch(mediaType) {
+    case MediaType.IMAGE:
+        isViewable = true;
+        if(isPresent(response.replyOf)){
+            var img = $(`.msg:has(.msg-ids[value="${response.messageId}"])>.msg-div>.msg-reply-prev>img`);
+            img.attr('src', response.replyOf.modFilename);
+        } else {
+            fileContent = $('<img class="attach-img"></img>');
+            fileContent.attr('src', response.modFilename);
+        }
+        break;
+    case MediaType.AUDIO:
+        if(isPresent(response.replyOf)) {
+            fileContent = $('<img class="attach-icon" src="./images/gif/spinner.gif"></img>');
+            fileType.getThumbnail('audio').then(function(icon){
+                var img = $(`.msg:has(.msg-ids[value="${response.messageId}"])>.msg-div>.msg-reply-prev>img`);
+                img.attr('src', icon);
+            });
+        } else {
+            fileContent = $('<audio />', {
+                src: response.modFilename,
+                controls: true
+            });
+        }
+        break;
+    case MediaType.VIDEO:
+        isViewable = true;
+        fileContent = $('<img class="attach-img" src="./images/gif/spinner.gif"></img>');
+        var video = isPresent(response.replyOf) ? response.replyOf.modFilename : response.modFilename;
+        videoToImage(video).then(function(src){
+            var tgt = $(`.msg:has(.msg-ids[value="${response.messageId}"])>.msg-div`);
+            if(!isPresent(response.replyOf))
+                tgt.find('.attach-content>img').attr('src', src);
+            else
+                tgt.find('.msg-reply-prev>img').attr('src', src);
+        });
+        break;
+    case MediaType.TEXT:
+        isViewable = true;
+        var text = isPresent(response.replyOf) ? response.replyOf.modFilename : response.modFilename;
+        fileContent = $('<img class="attach-img" src="./images/gif/spinner.gif"></img>');
+        var jqXhr = $.ajax({
+            url : text,
+            method : 'get',
+        });
 
-// function showThumbnails(field, thumbnailTarget) {
-// thumbnailTarget.empty();
-// var files = field[0].files;
-// for (var i = 0; i < files.length; i++) {
-// var thumb;
-// if (files[i].type.startsWith('image/')) {
-// thumb = $('<img></img>');
-// thumb.attr('src', window.URL.createObjectURL(files[i]));
-// thumb.height(60);
-// thumb[0].onload = window.URL.revokeObjectURL(files[i]);
-// } else {
-// thumb = $('<span class="thumb"></span>');
-// thumb.text(`File-$(i + 1)`);
-// }
-// thumbnailTarget.append(thumb);
-// }
-// }
+        jqXhr.done(function (data) {
+            var src = textToImage(data, 640, 320);
+            var tgt = $(`.msg:has(.msg-ids[value="${response.messageId}"])>.msg-div`);
+            if(!isPresent(response.replyOf))
+                tgt.find('.attach-content>img').attr('src', src);
+            else
+                tgt.find('.msg-reply-prev>img').attr('src', src);
+        });
+        break;
+    case MediaType.PDF:
+        isViewable = true;
+    case MediaType.DOCUMENT:
+        var doc = isPresent(response.replyOf) ? response.replyOf.mainFilename : response.mainFilename;
+        fileContent = $('<img class="attach-icon" src="./images/gif/spinner.gif"></img>');
+        dLink = $(`<a class="msg-download-link" href="${response.modFilename}" download=${response.mainFilename}>
+                       ${response.mainFilename}
+                   </a>`);
+        var ext = doc.substring(doc.lastIndexOf('.') + 1);
+        fileType.getThumbnail(ext).then(function(icon){
+            var tgt = $(`.msg:has(.msg-ids[value="${response.messageId}"])>.msg-div`);
+            if(!isPresent(response.replyOf))
+                tgt.find('.attach-content img').attr('src', icon);
+            else
+                tgt.find('.msg-reply-prev>img').attr('src', icon);
+        });
+        break;
+    }
+    
+    return {
+            fileContent: fileContent,
+            isViewable : isViewable,
+            dLink : dLink
+    };
+}
+
+function handleFileClick(thisFile){
+	var viewTarget = [];
+	var activeSrc = $(thisFile).parent().find('.attach-source.viewable').val();
+	var viewableSrc = $('.attach-source.viewable');
+	var viewableName = $('.attach-filename.viewable');
+	var viewableType = $('.attach-mediatype.viewable');
+	// for debug
+	if(!((viewableSrc.length === viewableName.length) && (viewableSrc.length === viewableType.length))){
+		console.log(`Source(${viewableSrc.length}),  filename(${viewableName.length}) media type(${viewableType.length}) length mismatch`);
+		return false;
+	}
+	$.each(viewableSrc, function(i, target){
+		viewTarget[i] = {
+				src : target.value,
+				name : viewableName[i].value,
+				type : viewableType[i].value,
+				isActive : (target.value === activeSrc)
+		};
+	});
+	
+	var viewer = new FileViewer($('#m-view-pane'), viewTarget); 
+	viewer.fileView();
+}

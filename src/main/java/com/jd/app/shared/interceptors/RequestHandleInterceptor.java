@@ -2,6 +2,7 @@ package com.jd.app.shared.interceptors;
 
 import java.time.ZoneId;
 import java.util.Enumeration;
+import java.util.Locale;
 import java.util.TimeZone;
 
 import javax.servlet.http.Cookie;
@@ -9,6 +10,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.ModelAndView;
@@ -17,8 +19,10 @@ import org.springframework.web.util.WebUtils;
 
 import com.jd.app.shared.annotation.NoSessionCheck;
 import com.jd.app.shared.constant.general.AppConstants;
+import com.jd.app.shared.constant.general.CookieNames;
 import com.jd.app.shared.helper.AppUtil;
 
+import is.tagomor.woothee.Classifier;
 import lombok.extern.log4j.Log4j2;
 
 /**
@@ -33,20 +37,14 @@ public class RequestHandleInterceptor extends HandlerInterceptorAdapter {
 
 		log.info("[preHandle][" + request + "]" + "[" + request.getMethod() + "]" + request.getRequestURI()
 				+ getParameters(request));
-		log.info("Header Details: " + getHeaders(request));
-		Cookie cookie = WebUtils.getCookie(request, "ts");
-		if (cookie != null)
-			setThreadTimezone(cookie.getValue());
-		return isValidSession(request, handler);
-	}
+		String userAgent = request.getHeader(AppConstants.REQ_HEADER_USER_AGENT);
+		if (StringUtils.isBlank(userAgent) || Classifier.isCrawler(userAgent))
+			return false;
+		boolean isValid = isValidSession(request, handler);
+		if (isValid)
+			isValid = checkAttachmentAccess(request);
 
-	private static void setThreadTimezone(String tzName) {
-		try {
-			TimeZone tz = TimeZone.getTimeZone(ZoneId.of(tzName));
-			LocaleContextHolder.setTimeZone(tz);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		return isValid;
 	}
 
 	@Override
@@ -63,14 +61,37 @@ public class RequestHandleInterceptor extends HandlerInterceptorAdapter {
 		response.setDateHeader("Expires", 0);
 	}
 
+	private static final String CERT_PATH = "/.well-known/acme-challenge/";
 	private static final String[] EXCLUSION_FILES = { ".html", ".js", ".css", ".map", ".gif" };
 
 	private static boolean isValidSession(HttpServletRequest request, Object handler) {
 		String servletPath = request.getServletPath();
+		if (servletPath.contains(CERT_PATH))
+			return true;
 		for (int i = 0; i < EXCLUSION_FILES.length; i++) {
 			if (servletPath.endsWith(EXCLUSION_FILES[i]))
 				return true;
 		}
+
+		Cookie tsCookie = WebUtils.getCookie(request, CookieNames.TIMEZONE);
+		if (tsCookie != null && StringUtils.isNotBlank(tsCookie.getValue())) {
+			TimeZone tz = TimeZone.getTimeZone(ZoneId.of(tsCookie.getValue()));
+			LocaleContextHolder.setTimeZone(tz);
+		}
+
+		Cookie langCookie = WebUtils.getCookie(request, CookieNames.LANGUAGE);
+		if (langCookie != null && StringUtils.isNotBlank(langCookie.getValue())) {
+			String[] tagParts = langCookie.getValue().split("-");
+			Locale locale;
+			if (tagParts.length != 0) {
+				if (tagParts.length == 1)
+					locale = new Locale(tagParts[0]);
+				else
+					locale = new Locale(tagParts[0], tagParts[1]);
+				LocaleContextHolder.setLocale(locale);
+			}
+		}
+
 		if (handler instanceof HandlerMethod) {
 			HandlerMethod method = (HandlerMethod) handler;
 			if (method.getMethod().isAnnotationPresent(NoSessionCheck.class)
@@ -91,6 +112,30 @@ public class RequestHandleInterceptor extends HandlerInterceptorAdapter {
 		return isValid;
 	}
 
+	private static final String ATTACHMENT_PATH_REGEX = "\\/attachment\\/.+\\.[a-zA-Z0-9]{1,}";
+
+	/**
+	 * @param request
+	 * @return
+	 */
+	private static boolean checkAttachmentAccess(HttpServletRequest request) {
+		String servletPath = request.getServletPath();
+		Object username = WebUtils.getSessionAttribute(request, AppConstants.SESSION_ATTR_USERNAME);
+
+		if (username == null)
+			return true;
+
+		if (servletPath.matches(ATTACHMENT_PATH_REGEX)) {
+			boolean check = (servletPath.contains("/" + username.toString() + "/"));
+			if (!check)
+				log.info("Illegal access detected to resource: " + request.getServletPath() + "by username: "
+						+ username.toString());
+			return check;
+		}
+
+		return true;
+	}
+
 	private static String getParameters(HttpServletRequest request) {
 		StringBuilder posted = new StringBuilder();
 		Enumeration<?> e = request.getParameterNames();
@@ -106,26 +151,10 @@ public class RequestHandleInterceptor extends HandlerInterceptorAdapter {
 				posted.append(request.getParameter(curr));
 			}
 		}
-		String ip = request.getHeader("X-FORWARDED-FOR");
-		String ipAddr = (ip == null) ? AppUtil.getClientIpAddress(request) : ip;
+		String ipAddr = AppUtil.getClientIpAddress(request);
 		if (ipAddr != null && !ipAddr.equals("")) {
 			posted.append("&ip=" + ipAddr);
 		}
 		return posted.toString();
-	}
-
-	private static String getHeaders(HttpServletRequest request) {
-		StringBuilder headers = new StringBuilder();
-		Enumeration<?> e = request.getHeaderNames();
-		if (e != null) {
-			while (e.hasMoreElements()) {
-				String header = (String) e.nextElement();
-				headers.append(header);
-				headers.append("=");
-				headers.append(request.getHeader(header));
-				headers.append(", ");
-			}
-		}
-		return headers.toString();
 	}
 }

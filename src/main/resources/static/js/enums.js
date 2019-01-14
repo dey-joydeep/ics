@@ -48,3 +48,17 @@ var StatusIconText = Object.freeze({
 	"SENT" : "check_circle_outline", // done
 	"DELIVERED" : "check_circle", // done_all
 });
+
+var ContentType = Object.freeze({
+	"TEXT" : "TEXT",
+	"BINARY" : "BINARY",
+	"MIXED" : "MIXED"
+});
+var MediaType = Object.freeze({
+	"IMAGE" : "IMAGE",
+	"AUDIO" : "AUDIO",
+	"VIDEO" : "VIDEO",
+	"PDF" : "PDF",
+	"TEXT" : "TEXT",
+	"DOCUMENT" : "DOCUMENT"
+});

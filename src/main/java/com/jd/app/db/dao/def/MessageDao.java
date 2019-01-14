@@ -15,6 +15,8 @@ public interface MessageDao {
 
 	void updateMessage(Message message);
 
+	Message getMessagesById(long messageId);
+
 	List<Message> getMessagesById(long[] messageIds) throws DatabaseException;
 
 	Message getLastMessage(String sender, String receiver) throws DatabaseException;

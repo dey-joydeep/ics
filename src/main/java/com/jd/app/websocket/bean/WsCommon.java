@@ -12,6 +12,8 @@ public class WsCommon {
 
 	private CommType commType;
 	private String sender;
-//	private String receiver;
 	private String[] receivers;
+	
+	// Meta info
+	private String tz;
 }

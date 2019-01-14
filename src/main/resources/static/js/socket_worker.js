@@ -1,5 +1,5 @@
 var ws;
-var port;
+var ports = [];
 function isPresent(data) {
 	return (typeof (data) !== 'undefined' && data !== null);
 }
@@ -18,16 +18,15 @@ function connect(username) {
 	var params = {};
 	// check the status of current websocket session
 	if (!isPresent(ws) || ws.readyState === ws.CLOSED || username !== ws.id) {
-		ws = new WebSocket(self.location.origin.replace('http','ws') 
-				+'/socket/conn/?username='+username);
+		ws = new WebSocket(`${self.location.origin.replace('http','ws')}/socket/conn/?username=${username}`);
 		ws.onconnect = function() {
+		    console.log('>>>New websocket instance is created.');
 			params.command = 'CONNECTED';
-			port.postMessage(params);
+			post(params);
 		};
-		ws.id = username;
-		ws.onclose = function() {
+		ws.onclose = function(e) {
 			params.command = 'CLOSED';
-			port.postMessage(params);
+			post(params);
 		};
 		ws.onerror = function(e) {
 			console.log(e);
@@ -35,15 +34,20 @@ function connect(username) {
 		ws.onmessage = function(e) {
 			params.command = 'RECEIVED_MESSAGE';
 			params.content = JSON.parse(e.data);
-			port.postMessage(params);
+			post(params);
 		};
-		console.log('>>>New websocket instance is created.');
 // checkAndNotifyConnect(params, 5);
 	} else {
 		console.log('>>>Sharing exsiting websocket instance.');
 	}
 	params.command = 'CONNECTED';
-	port.postMessage(params);
+	post(params);
+}
+
+function post(msg) {
+    ports.forEach((port) =>{
+        port.postMessage(msg);
+    });
 }
 
 // function checkAndNotifyConnect(params, timeout){
@@ -79,7 +83,14 @@ function connect(username) {
  * @param{JSON} data A JSON object containing the data
  */
 function sendText(data) {
+	data.tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 	ws.send(JSON.stringify(data));
+}
+
+function sendBinary(data, file) {
+	data.tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+	data = JSON.stringify(data);
+	ws.send(new TextEncoder().encode(data+ '\n' +file));
 }
 
 /**
@@ -93,7 +104,7 @@ function sendText(data) {
  * @param file
  *            the file object
  */
-function sendBinary(data, file) {
+function sendBinaryOld(data, file) {
 	// TextEncoder support is required to verify, especially in IE11/Edge
 	// Convert the data into string and then to an ArrayBuffer.
 	var body = new TextEncoder().encode(JSON.stringify(data));
@@ -137,31 +148,35 @@ function concatBuffers(...arrays) {
 self.onconnect= function(e) {
 	console.log(e)
 // if(!isPresent(port))
-	port = e.ports[0];
-	port.onmessage = function(e) {
-		var content = e.data.content;
-		if(typeof content === 'object') {
-			if(typeof content.receivers === 'string')
-				content.receivers = [content.receivers];
-			if(typeof content.messageIds === 'number')
-				content.messageIds = [content.messageIds];
-		}
-		switch (e.data.command) {
-		case 'CONNECT':
-			console.log('>>>Trying to obtain websocket instance.');
-			connect(content);
-			break;
-		case 'SEND_TEXT':
-		case 'SEND_RECEIPT':
-			sendText(content);
-			break;
-		case 'SEND_BINARY':
-			sendBinary(content, e.data.file);
-			break;
-		case 'CLOSE':
-			break;
-		default:
-			throw '<<<Unknown command received';
-		}
-	};
+	ports.push(e.ports[0]);
+	ports.forEach((port) =>{
+	    if(port.onmessage !==null)
+	        return;
+    	port.onmessage = function(e) {
+    		var content = e.data.content;
+    		if(typeof content === 'object') {
+    			if(typeof content.receivers === 'string')
+    				content.receivers = [content.receivers];
+    			if(typeof content.messageIds === 'number')
+    				content.messageIds = [content.messageIds];
+    		}
+    		switch (e.data.command) {
+    		case 'CONNECT':
+    			console.log('>>>Trying to obtain websocket instance.');
+    			connect(content);
+    			break;
+    		case 'SEND_TEXT':
+    		case 'SEND_RECEIPT':
+    			sendText(content);
+    			break;
+    		case 'SEND_BINARY':
+    			sendBinary(content, e.data.file);
+    			break;
+    		case 'CLOSE':
+    			break;
+    		default:
+    			throw '<<<Unknown command received';
+    		}
+    	};
+	});
 };

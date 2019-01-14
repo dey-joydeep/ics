@@ -8,16 +8,19 @@
 <link rel="shortcut icon" type="image/x-icon" href="./favicon.ico" />
 <link href="./webjars/bootstrap/css/bootstrap.css" rel="stylesheet">
 <link href="./css/home/home.css" rel="stylesheet" media="all">
+<link href="./css/preview.css" rel="stylesheet" media="all">
 <script src="./webjars/jquery/jquery.min.js"></script>
 <script src="./webjars/bootstrap/js/bootstrap.bundle.js"></script>
-<!-- <script src="https://unpkg.com/popper.js@1.14.6/dist/umd/popper.min.js"></script> -->
-<script src="./js/common.js"></script>
+<script src="./js/filetypes.js"></script>
 <script src="./js/enums.js"></script>
 <script src="./js/consts.js"></script>
+<script src="./js/common.js"></script>
 <script src="./js/home-utils.js"></script>
+<script src="./js/convert-util.js"></script>
+<script src="./js/preview.js"></script>
+<script src="./js/fileview.js"></script>
 <script src="./js/home.js"></script>
 <script src="./js/chat.js"></script>
-<script src="./js/preview.js"></script>
 <script src="./js/notifier.js"></script>
 </head>
 <body>
@@ -43,7 +46,7 @@
 				</div>
 				<div id="user-search" class="form-group">
 					<input type="search" name="searchId" id="search-id"
-						class="form-control" placeholder="Search Friend"
+						class="form-control" placeholder="Search in chats..."
 						disabled="disabled">
 				</div>
 				<div id="user-list"></div>
@@ -57,6 +60,11 @@
 							<i class="material-icons" id="back-to-friend-list">
 								arrow_back_ios </i>
 						</div>
+						<div id="message-action-area">
+							<button class="btn btn-sm btn-outline-danger" id="msg-dlt-btn">Delete</button>
+							<button class="btn btn-sm btn-outline-secondary"
+								id="msg-dlt-cancel-btn">Cancel</button>
+						</div>
 						<div id="user-info">
 							<div class="image"></div>
 							<div class="info"></div>
@@ -66,6 +74,9 @@
 				</div>
 				<div id="message-out" class="row">
 					<div class="col"></div>
+					<div id="type-stat-block">
+						<span id="type-stat"></span>
+					</div>
 				</div>
 				<div id="message-in" class="row">
 					<div class="extras col">
@@ -102,8 +113,10 @@
 					</div>
 				</div>
 			</div>
-			<div id="summary-panel" class="chat-sub-panel col-3">User Info
-				Panel</div>
+			<div id="summary-panel" class="chat-sub-panel col-3">
+				<div class="self-control" title="Close">&times;</div>
+				<div class="content-area"></div>
+			</div>
 			<input type="hidden" id="curr-size" value="0"> <input
 				type="hidden" id="next-size" value="100">
 		</div>
@@ -112,63 +125,64 @@
 		Dey </footer>
 	<input type="hidden" id="username" />
 	<input type="hidden" id="firstname" />
+	<input type="hidden" id="lastname" />
 	<input type="hidden" id="ws-stat" />
 	<input type="hidden" id="chat-in-display">
 	<input type="file" name="avFile" id="av-file" accept=""
 		multiple="multiple">
 	<input type="file" name="docFile" id="doc-file" accept=""
 		multiple="multiple">
-	<div class="modal" tabindex="-1" role="dialog" id="av-preview">
-		<div class="modal-dialog modal-dialog-centered" role="document">
-			<div class="modal-content">
-				<div class="modal-header">
-					<h5 class="modal-title">Send Photos &amp; Videos</h5>
-					<button type="button" class="close" data-dismiss="modal"
-						aria-label="Close">
-						<span aria-hidden="true">&times;</span>
-					</button>
-				</div>
-				<div class="modal-body">
-					<div id="av-slide" class="carousel slide" data-interval="false">
-						<div class="carousel-inner"></div>
-						<a class="carousel-control-prev" href="#av-slide" role="button"
-							data-slide="prev"> <span class="carousel-control-prev-icon"
-							aria-hidden="true"></span> <span class="sr-only">Previous</span>
-						</a> <a class="carousel-control-next" href="#av-slide" role="button"
-							data-slide="next"> <span class="carousel-control-next-icon"
-							aria-hidden="true"></span> <span class="sr-only">Next</span>
-						</a>
-					</div>
-				</div>
-				<div class="modal-footer">
-					<button type="button" id="av-send-btn"
-						class="btn btn-outline-secondary">
-						<i class="material-icons">send</i>
-					</button>
-				</div>
+	<div id="m-preview-pane" class="preview-pane" tabindex="-1">
+		<button class="close">
+			<i class="material-icons md-36" title="Close"> close </i>
+		</button>
+		<div class="m-content">
+			<div class="view-controller control-left">
+				<button>
+					<i class="material-icons md-36" title="Previous"> arrow_left </i>
+				</button>
+			</div>
+			<div class="view-controller control-right">
+				<button>
+					<i class="material-icons md-36" title="Next"> arrow_right </i>
+				</button>
+			</div>
+			<div class="file-control">
+				<span class="up-filename"></span> <input type="hidden"
+					class="active-data-id"> <i title="Remove"
+					class="material-icons md-19 remove-icon"> delete_forever </i>
 			</div>
 		</div>
+		<div class="m-thumbnail">
+			<div class="thumbs file-add">
+				<i class="material-icons md-36" title="Add files"> add_circle </i>
+			</div>
+		</div>
+		<div class="m-send">
+			<button type="button" id="m-send-btn" class="btn" title="Send">
+				<i class="material-icons">send</i>
+			</button>
+		</div>
 	</div>
-	<div class="modal" tabindex="-1" role="dialog" id="user-option">
-		<div class="modal-dialog modal-dialog-centered" role="document">
-			<div class="modal-content">
-				<div class="modal-header">
-					<h5 class="modal-title">Confirm</h5>
-				</div>
-				<div class="modal-body">
-					<div id="av-slide" class="carousel slide" data-interval="false">
-						Closing this window will discard the contents. Proceed?</div>
-				</div>
-				<div class="modal-footer">
-					<button type="button" class="btn btn-outline-primary btn-sm"
-						id="confirm-yes">
-						<i class="material-icons">check</i>
-					</button>
-					<button type="button" class="btn btn-outline-primary btn-sm"
-						id="confirm-no">
-						<i class="material-icons">close</i>
-					</button>
-				</div>
+	<div id="m-view-pane" class="preview-pane" tabindex="-1">
+		<button class="close">
+			<i class="material-icons md-36" title="Close"> close </i>
+		</button>
+		<div class="m-content fileview-pane">
+			<div class="view-controller control-left">
+				<button>
+					<i class="material-icons md-36" title="Previous"> arrow_left </i>
+				</button>
+			</div>
+			<div class="view-controller control-right">
+				<button>
+					<i class="material-icons md-36" title="Next"> arrow_right </i>
+				</button>
+			</div>
+			<div class="file-control">
+				<a href="" download="" class="fileview-d-link"
+					title="Click here to download"> <span class="up-filename"></span>
+					<span><i class="material-icons"> file_download </i></span></a>
 			</div>
 		</div>
 	</div>

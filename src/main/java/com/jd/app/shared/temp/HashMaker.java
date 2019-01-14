@@ -6,7 +6,7 @@ import com.jd.app.shared.error.exceptions.CryptoException;
 public class HashMaker {
 
 	public static void main(String[] args) throws CryptoException {
-		String password = "lakshita";
+		String password = "barun";
 		String hashedPassword = CryptoUtil.createPwHash(password);
 		System.out.println(hashedPassword);
 	}

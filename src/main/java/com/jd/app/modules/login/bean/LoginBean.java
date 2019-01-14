@@ -29,7 +29,7 @@ public class LoginBean extends SharedBean {
 	private boolean rememberMe;
 
 	@JsonIgnore
-	private String ipAddres;
+	private String ipAddress;
 
 	@JsonIgnore
 	private String userAgent;;
@@ -39,4 +39,7 @@ public class LoginBean extends SharedBean {
 
 	@JsonIgnore
 	private Cookie cookie;
+
+	@JsonIgnore
+	private long accessLogId;
 }

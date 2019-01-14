@@ -12,6 +12,8 @@ import com.jd.app.db.dao.CommonDao;
 import com.jd.app.db.dao.def.UserDao;
 import com.jd.app.db.entity.Login;
 import com.jd.app.db.entity.User;
+import com.jd.app.db.entity.rst.ChatHistory;
+import com.jd.app.db.entity.rst.ChatHistoryResultTransformer;
 import com.jd.app.shared.error.exceptions.DatabaseException;
 
 /**
@@ -73,14 +75,21 @@ public class UserDaoImpl extends CommonDao implements UserDao {
 	}
 
 	@SuppressWarnings("unchecked")
-	public List<User> getActiveUsers(String username) throws DatabaseException {
+	public List<ChatHistory> getChatHistoryList(String username) throws DatabaseException {
 		try {
-			String hql = "FROM User u WHERE u.login.active IS TRUE AND u.username != :username";
+			String hql = "FROM User u INNER JOIN FETCH u.login l LEFT JOIN FETCH Message m ON "
+					+ "((m.sender.username = u.username AND m.receiver.username = :username AND m.receiverDelete IS FALSE) "
+					+ "OR (m.receiver.username = u.username AND m.sender.username = :username AND m.senderDelete IS FALSE)) "
+					+ "AND m.messageId = (SELECT MAX(msg.messageId) FROM Message msg WHERE"
+					+ "((msg.sender , msg.receiver) = (m.sender , m.receiver) AND msg.senderDelete IS FALSE)"
+					+ "OR ((msg.sender , msg.receiver) = (m.receiver , m.sender) AND m.receiverDelete IS FALSE)) "
+					+ "WHERE l.active IS TRUE AND u.username != :username ORDER BY m.sentAt DESC";
 			Map<String, Object> paramValueMap = new HashMap<>();
 			paramValueMap.put("username", username);
-			return (List<User>) find(hql, paramValueMap);
+			setResultTransformer(new ChatHistoryResultTransformer());
+			return (List<ChatHistory>) find(hql, paramValueMap);
 		} catch (Exception e) {
-			throw new DatabaseException("Could not check username existence", e);
+			throw new DatabaseException("Could not load chat history", e);
 		}
 	}
 }

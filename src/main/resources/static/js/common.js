@@ -58,19 +58,25 @@ var evaluateValidationError = function (inputParent, errors) {
 }
 var urlify = function (text) {
     return text.replace(URL_REGEX, function (url) {
-        return '<a href="' + url + '">' + url + '</a>';
+        return `<a href="${url}" target="_blank">${url}</a>`;
     })
-    // or alternatively
-    // return text.replace(urlRegex, '<a href="$1">$1</a>')
 }
 
 function isPresent(data) {
     return (typeof (data) !== 'undefined' && data !== null);
 }
 
+function isAppCompatible() {
+    return ('SharedWorker' in window) && ('WebSocket' in window)
+            && ('TextEncoder' in window);
+}
+
+function redirect() {
+    window.location.replace('./');
+}
+
 $(function () {
-    var name;
-    var value;
+    var name, value;
     var requireUpdate = false;
     var cookies = document.cookie;
     if (cookies !== null)

@@ -2,22 +2,25 @@ debug: true
 logging:
   config: classpath:log4j2.xml
 server:
-  port: 80
+#  port: 80
 #  DIS_SSL
-#  port: 8443
-  connection-timeout: 31536000s
+  port: 443
+  tomcat:
+    uri-encoding: utf-8
 #DIS_SSL
-#  http2:
-#    enabled: true
-#  ssl:
-#    key-alias: selfsigned_localhost_sslserver
-#    key-password: Jm278342
-#    key-store: classpath:ssl-server.jks
-#    key-store-password: Jm278342
-#    key-store-provider: SUN
-#    key-store-type: JKS
+  http2:
+    enabled: true
+  ssl:
+    #key-alias: tomcat
+    #key-password: Jm278342
+    key-store: classpath:certificate.pfx
+    key-store-password: Jm278342
+    #key-store-provider: SUN
+    key-store-type: PKCS12
   servlet:
     contextPath: /
+    session:
+      timeout: -1
 spring:
   mvc:
     view:

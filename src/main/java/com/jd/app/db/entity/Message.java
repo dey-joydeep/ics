@@ -5,12 +5,12 @@ import java.time.ZonedDateTime;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Enumerated;
-import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
+import javax.persistence.OneToOne;
 import javax.persistence.Table;
 
 import com.jd.app.db.entity.common.CommonEntity;
@@ -23,7 +23,7 @@ import lombok.EqualsAndHashCode;
 @Data
 @Entity
 @Table(name = "message")
-@EqualsAndHashCode(callSuper = false)
+@EqualsAndHashCode(callSuper = false, exclude = { "sender", "receiver" })
 public class Message extends CommonEntity {
 
 	private static final long serialVersionUID = 1L;
@@ -33,22 +33,22 @@ public class Message extends CommonEntity {
 	@Column(name = "message_id", insertable = false, updatable = false)
 	private long messageId;
 
+	@ManyToOne
 	@JoinColumn(name = "sender")
-	@ManyToOne(fetch = FetchType.LAZY)
 	private User sender;
 
+	@ManyToOne
 	@JoinColumn(name = "receiver")
-	@ManyToOne(fetch = FetchType.LAZY)
 	private User receiver;
 
 	@Column(name = "content")
 	private String content;
 
-	@Column(name = "attachment_path_media")
-	private String attachmentPathMedia;
+	@Column(name = "attachment_path")
+	private String attachmentPath;
 
-	@Column(name = "attachment_path_doc")
-	private String attachmentPathDoc;
+	@Column(name = "original_filename")
+	private String originalFilename;
 
 	@Column(name = "sent_at", columnDefinition = "datetime")
 	private ZonedDateTime sentAt;
@@ -66,4 +66,14 @@ public class Message extends CommonEntity {
 	@Enumerated
 	@Column(name = "answer_type", columnDefinition = "tinyint")
 	private AnswerType answerType;
+
+	@Column(name = "is_sender_delete")
+	private boolean senderDelete;
+
+	@Column(name = "is_receiver_delete")
+	private boolean receiverDelete;
+	
+	@OneToOne
+	@JoinColumn(name = "reply_of_id")
+	private Message replyOf;
 }
